@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Imports -->
+    <title>Light Rewrite</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+        }
+        h1 {
+            text-align: center; /* Center the title */
+        }
+        .menu-bar { 
+            background-color: #f0f0f0; 
+            padding: 10px; 
+            display: flex; /* Use flex to align items */
+            justify-content: flex-start; /* Align items to the left */
+            width: 100%; /* Make menu bar full width */
+            box-shadow: 0px 2px 5px rgba(0,0,0,0.2); /* Add slight shadow for depth */
+            margin-bottom: 10px; /* Space below the menu */
+        }
+        .dropdown {
+            position: relative; /* Position relative to the menu items */
+            margin-right: 15px; /* Space between dropdowns */
+        }
+        .dropdown-content {
+            display: none; 
+            position: absolute; 
+            background-color: white; 
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            white-space: nowrap; /* Prevent wrapping */
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        .file-upload, .search-option { margin: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 12px; border: 1px solid #ddd; }
+        .dropdown-content a { padding: 8px 12px; display: block; text-decoration: none; }
+        .dropdown-content a:hover { background-color: #f1f1f1; }
+        .instruction { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            font-style: italic; 
+            color: #555; 
+            display: block; 
+        }
+        #searchInfo { 
+            text-align: center; 
+            margin-bottom: 10px; 
+            font-weight: bold; 
+            color: #007BFF; 
+        }
+    </style>
+</head>
+<body>
+
+<h1>Light Rewrite Web</h1> <!-- Title added -->
+
+<div class="menu-bar"> <!--Menu Bar-->
+    <div class="dropdown">
+        <button>File</button>
+        <div class="dropdown-content">
+            <label for="fileInput" class="file-upload">
+                <input type="file" id="fileInput" accept=".xml" style="display: none;" onchange="processFile()">
+                <a href="#" onclick="document.getElementById('fileInput').click(); return false;">Upload XML File</a>
+            </label>
+        </div>
+    </div>
+    
+    <div class="dropdown">
+        <button>Search</button>
+        <div class="dropdown-content">
+            <div class="search-option">
+                <a href="#" onclick="searchByChannel()">Search by Channel Numbers</a>
+            </div>
+            <div class="search-option">
+                <a href="#" onclick="resetSearch()">Reset</a> <!-- Reset option added -->
+            </div>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <button>Exports</button>
+        <div class="dropdown-content">
+            <div class="search-option">
+                <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<div class="instruction" id="instructionBox">Use the File menu to upload an XML file.</div> <!-- Instruction box positioned below the menu -->
+
+<div id="searchInfo" style="display: none;">Currently Searching: <span id="searchCriteria"></span></div> <!-- Search info box -->
+
+<table id="dataTable" class="display" style="display: none;">
+    <thead>
+        <tr>
+            <th>Channel</th>
+            <th>Position</th>
+            <th>Unit</th>
+            <th>Purpose</th>
+            <th>Address</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody">
+    </tbody>
+</table>
+
+<script>
+//Globals    
+let originalData = []; // Global variable to store original data
+let tableInitialized = false; // Keep track of whether the DataTable has been initialized
+let instrumentData = []; //Globalize instrumeData?
+let uploadedFileName = ''; // Global variable to store the uploaded file name
+
+function processFile() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Please select an XML file.');
+        return;
+    }
+
+    // Store the uploaded file name (without the extension) for later use
+    uploadedFileName = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(event.target.result, "text/xml");
+
+            const instrumentData = xmlDoc.querySelector("InstrumentData");
+            const instruments = instrumentData ? Array.from(instrumentData.children) : [];
+
+            if (instruments.length <= 0) {
+                alert("No instrument entries found in the XML file.");
+                return;
+            }
+
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            originalData = []; // Clear original data array
+
+            // Start from the 6th instrument (index 5) to skip the first 5
+            for (let i = 5; i < instruments.length; i++) {
+                const instrument = instruments[i];
+                const channel = instrument.querySelector('Channel')?.textContent || '';
+                const position = instrument.querySelector('Position')?.textContent || '';
+                const unit = instrument.querySelector('Unit_Number')?.textContent || '';
+                const purpose = instrument.querySelector('Purpose')?.textContent || '';
+                const address = instrument.querySelector('Absolute_Address')?.textContent || '';
+
+                const row = `<tr>
+                    <td>${channel}</td>
+                    <td>${position}</td>
+                    <td>${unit}</td>
+                    <td>${purpose}</td>
+                    <td>${address}</td>
+                </tr>`;
+                tableBody.innerHTML += row;
+                originalData.push({ channel, position, unit, purpose, address }); // Save data
+            }
+
+            document.getElementById('dataTable').style.display = 'block';
+            document.getElementById('instructionBox').style.display = 'none'; // Hide instruction box
+            document.getElementById('searchInfo').style.display = 'none'; // Hide search info
+
+            if (!tableInitialized) {
+                $('#dataTable').DataTable({
+                    searching: false,  // Disable the search bar
+                    paging: false,     // Disable pagination
+                    info: false,       // Disable the info display
+                    order: [],         // Disable default ordering
+                    columnDefs: [
+                        {
+                            targets: 1, // Target the Position column (index 1)
+                            orderData: [1, 2], // Sort by Position (index 1) and then by Unit Number (index 2)
+                        }
+                    ]
+                });
+                tableInitialized = true;
+            } else {
+                $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+            }
+
+        } catch (error) {
+            console.error("Error parsing XML file:", error);
+            alert("An error occurred while processing the XML file. Please check the console for details.");
+        }
+    };
+
+    reader.readAsText(file);
+}
+
+
+function searchByChannel() {
+    const input = prompt("Enter a range (e.g., 1-5) or a list of channel numbers (e.g., 1,2,3):");
+    if (input) {
+        const filterValues = input.split(',').map(x => x.trim());
+        const filteredData = originalData.filter(item => 
+            filterValues.some(value => isInRange(item.channel, value) || item.channel === value.trim())
+        );
+
+        const tableBody = document.getElementById('tableBody');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+        filteredData.forEach(item => {
+            const row = `<tr>
+                <td>${item.channel}</td>
+                <td>${item.position}</td>
+                <td>${item.unit}</td>
+                <td>${item.purpose}</td>
+                <td>${item.address}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+        });
+
+        $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+        
+        // Display the search criteria
+        document.getElementById('searchInfo').style.display = 'block';
+        document.getElementById('searchCriteria').innerText = input; // Show current search criteria
+    }
+}
+
+function isInRange(channel, input) {
+    const rangePattern = /(\d+)-(\d+)/; // Regex to match ranges like 1-5
+    const match = input.match(rangePattern);
+    if (match) {
+        const start = parseInt(match[1]);
+        const end = parseInt(match[2]);
+        return parseInt(channel) >= start && parseInt(channel) <= end;
+    }
+    return false;
+}
+
+function resetSearch() {
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    // Re-add all original data entries
+    originalData.forEach(item => {
+        const row = `<tr>
+            <td>${item.channel}</td>
+            <td>${item.position}</td>
+            <td>${item.unit}</td>
+            <td>${item.purpose}</td>
+            <td>${item.address}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+    });
+
+    // Redraw the DataTable
+    $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+
+    // Hide search info
+    document.getElementById('searchInfo').style.display = 'none';
+}
+
+function exportChannelHookup() {
+    // Function to create the header
+    function createHeader(pageNumber) {
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h1 style="margin: 0;">Channel Hookup</h1>
+                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+            </div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
+                <span style="width: 20%;">Channel</span>
+                <span style="width: 20%;">Position</span>
+                <span style="width: 20%;">Unit</span>
+                <span style="width: 20%;">Purpose</span>
+                <span style="width: 20%;">Address</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
+    // Function to create the footer
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+                <p>This was generated using Light Rewrite Web</p>
+            </div>
+        `;
+    }
+    // Sort originalData by channel numbers (assuming they are numeric)
+    const data = originalData.sort((a, b) => {
+        return parseInt(a.channel) - parseInt(b.channel); // Sort in ascending order
+    });
+
+    if (data.length === 0) {
+        alert('No instrument data available for export.');
+        return;
+    }
+
+    // Create a temporary div for PDF content
+    const pdfDiv = document.createElement('div');
+    pdfDiv.style.width = '100%'; // Ensure the div takes full width
+    pdfDiv.style.fontSize = '12px'; // Set font size for readability
+
+    // Define number of instruments per page
+    const instrumentsPerPage = 20;
+    let pageNumber = 1; // Initialize page number
+
+    // Create PDF content by chunks of instruments
+    for (let i = 0; i < data.length; i += instrumentsPerPage) {
+        const chunk = data.slice(i, i + instrumentsPerPage);
+
+        // Add a header for the page
+        const headerContent = createHeader(pageNumber);
+        
+        // Add each instrument data in the current chunk
+        let pdfContent = '';
+        chunk.forEach((instrument) => {
+            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+                <span style="width: 20%;">${instrument.channel}</span>
+                <span style="width: 20%;">${instrument.position}</span>
+                <span style="width: 20%;">${instrument.unit}</span>
+                <span style="width: 20%;">${instrument.purpose}</span>
+                <span style="width: 20%;">${instrument.address}</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`; // Add separator line
+        });
+
+        // Add a footer for the page
+        const footerContent = createFooter(pageNumber);
+
+        // Combine the header, content, and footer for this page
+        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+        // Add a page break after the content only if it's not the last page
+        if (i + instrumentsPerPage < data.length) {
+            pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+        }
+        
+        pageNumber++; // Increment page number for the next page
+    }
+
+    // Create PDF using html2pdf
+    const pdfOptions = {
+        margin:       0.5, // Adjust margin for better placement
+        filename:     `${uploadedFileName}_channel_hookup.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    // Generate and save PDF
+    html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
+
+
+
+
+
+</script>
+
+</body>
+</html>
