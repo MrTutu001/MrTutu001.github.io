@@ -73,6 +73,9 @@
                 <input type="file" id="fileInput" accept=".xml" style="display: none;" onchange="processFile()">
                 <a href="#" onclick="document.getElementById('fileInput').click(); return false;">Upload XML File</a>
             </label>
+            <div class="showInfo">
+                <a href="#" onclick="getShowInfo()">Show Info</a>
+            </div>
         </div>
     </div>
     
@@ -105,12 +108,14 @@
 
 <table id="dataTable" class="display" style="display: none;">
     <thead>
-        <tr>
+        <tr> <!--Data Point Add-->
             <th>Channel</th>
             <th>Position</th>
             <th>Unit</th>
             <th>Purpose</th>
+            <th>Dimmer</th>
             <th>Address</th>
+            <th>Color</th>
         </tr>
     </thead>
     <tbody id="tableBody">
@@ -123,6 +128,10 @@ let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
 let instrumentData = []; //Globalize instrumeData?
 let uploadedFileName = ''; // Global variable to store the uploaded file name
+// Global variables for show information
+let showName = '';
+let designer = '';
+let headElectrician = '';
 
 function processFile() {
     const fileInput = document.getElementById('fileInput');
@@ -155,23 +164,27 @@ function processFile() {
             originalData = []; // Clear original data array
 
             // Start from the 6th instrument (index 5) to skip the first 5
-            for (let i = 5; i < instruments.length; i++) {
+            for (let i = 5; i < instruments.length; i++) { //Data Point Add
                 const instrument = instruments[i];
                 const channel = instrument.querySelector('Channel')?.textContent || '';
                 const position = instrument.querySelector('Position')?.textContent || '';
                 const unit = instrument.querySelector('Unit_Number')?.textContent || '';
                 const purpose = instrument.querySelector('Purpose')?.textContent || '';
+                const dimmer = instrument.querySelector('Dimmer')?.textContent || '';
                 const address = instrument.querySelector('Absolute_Address')?.textContent || '';
+                const color = instrument.querySelector('Color')?.textContent || '';
 
-                const row = `<tr>
+                const row = `<tr> 
                     <td>${channel}</td>
                     <td>${position}</td>
                     <td>${unit}</td>
                     <td>${purpose}</td>
+                    <td>${dimmer}</td>
                     <td>${address}</td>
-                </tr>`;
+                    <td>${color}</td>
+                </tr>`; //Data Point Add
                 tableBody.innerHTML += row;
-                originalData.push({ channel, position, unit, purpose, address }); // Save data
+                originalData.push({ channel, position, unit, purpose, dimmer, address, color }); // Save data //Data Point Add
             }
 
             document.getElementById('dataTable').style.display = 'block';
@@ -205,6 +218,18 @@ function processFile() {
     reader.readAsText(file);
 }
 
+// Function to ask for show information and save it in global variables
+function getShowInfo() {
+    showName = prompt("Enter the name of the show:", showName || "Unnamed Show");
+    designer = prompt("Enter the name of the designer:", designer || "Unknown Designer");
+    headElectrician = prompt("Enter the name of the head electrician:", headElectrician || "Unknown Head Electrician");
+
+    // Ensure variables are not empty if user clears them
+    showName = showName ? showName : "Unnamed Show";
+    designer = designer ? designer : "Unknown Designer";
+    headElectrician = headElectrician ? headElectrician : "Unknown Head Electrician";
+}
+
 
 function searchByChannel() {
     const input = prompt("Enter a range (e.g., 1-5) or a list of channel numbers (e.g., 1,2,3):");
@@ -217,13 +242,15 @@ function searchByChannel() {
         const tableBody = document.getElementById('tableBody');
         tableBody.innerHTML = ''; // Clear existing rows
 
-        filteredData.forEach(item => {
+        filteredData.forEach(item => { //Data Point Add
             const row = `<tr>
                 <td>${item.channel}</td>
                 <td>${item.position}</td>
                 <td>${item.unit}</td>
                 <td>${item.purpose}</td>
+                <td>${item.dimmer}</td>
                 <td>${item.address}</td>
+                <td>${item.color}</td>
             </tr>`;
             tableBody.innerHTML += row;
         });
@@ -252,13 +279,15 @@ function resetSearch() {
     tableBody.innerHTML = ''; // Clear existing rows
 
     // Re-add all original data entries
-    originalData.forEach(item => {
+    originalData.forEach(item => { //Data Point Add
         const row = `<tr>
             <td>${item.channel}</td>
             <td>${item.position}</td>
             <td>${item.unit}</td>
             <td>${item.purpose}</td>
+            <td>${item.dimmer}</td>
             <td>${item.address}</td>
+            <td>${item.color}</td>
         </tr>`;
         tableBody.innerHTML += row;
     });
@@ -272,18 +301,20 @@ function resetSearch() {
 
 function exportChannelHookup() {
     // Function to create the header
-    function createHeader(pageNumber) {
+    function createHeader(pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0;">Channel Hookup</h1>
+                <h1 style="margin: 0;">Channel Hookup ${showName}</h1>
+                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
                 <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
             </div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
-                <span style="width: 20%;">Channel</span>
-                <span style="width: 20%;">Position</span>
-                <span style="width: 20%;">Unit</span>
-                <span style="width: 20%;">Purpose</span>
-                <span style="width: 20%;">Address</span>
+                <span style="width: 15%;">Channel</span>
+                <span style="width: 15%;">Position</span>
+                <span style="width: 15%;">Unit</span>
+                <span style="width: 15%;">Purpose</span>
+                <span style="width: 15%;">Address</span>
+                <span style="width: 15%;">Color</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
         `;
@@ -324,13 +355,14 @@ function exportChannelHookup() {
         
         // Add each instrument data in the current chunk
         let pdfContent = '';
-        chunk.forEach((instrument) => {
+        chunk.forEach((instrument) => { // Data Point Add
             pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
-                <span style="width: 20%;">${instrument.channel}</span>
-                <span style="width: 20%;">${instrument.position}</span>
-                <span style="width: 20%;">${instrument.unit}</span>
-                <span style="width: 20%;">${instrument.purpose}</span>
-                <span style="width: 20%;">${instrument.address}</span>
+                <span style="width: 15%;">${instrument.channel}</span>
+                <span style="width: 15%;">${instrument.position}</span>
+                <span style="width: 15%;">${instrument.unit}</span>
+                <span style="width: 15%;">${instrument.purpose}</span>
+                <span style="width: 15%;">${instrument.address}</span>
+                <span style="width: 15%;">${instrument.color}</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`; // Add separator line
         });
