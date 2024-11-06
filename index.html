@@ -94,6 +94,15 @@
             </div>
         </div>
     </div>
+
+    <div class="dropdown">
+        <button>Tools</button>
+        <div class="dropdown-content">
+            <div class="tools">
+                <a href="#" onclick="populateAddressFromDimmer()">Dimmer to Address</a>
+            </div>
+        </div>
+    </div>
     
     <div class="dropdown">
         <button>Search</button>
@@ -490,7 +499,7 @@ function resetSearch() {
         // Extract accessory types into a string, or show "N/A" if there are no accessories
         const accessoriesText = item.accessories && item.accessories.length > 0
             ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
-            : "N/A";
+            : "";
 
         const row = `<tr>
             <td>${item.channel}</td>
@@ -959,6 +968,38 @@ function generatePatchFile() {
     link.download = `${uploadedFileName}_Patch.txt`;
     link.click();
 }
+
+function populateAddressFromDimmer() {
+    if (!originalData || originalData.length === 0) {
+        alert("No data available to populate addresses.");
+        return;
+    }
+
+    // Prompt the user to input the starting universe for dimmer 1
+    let startingUniverse = parseInt(prompt("Enter the starting universe for dimmer 1:", "1"), 10);
+    if (isNaN(startingUniverse) || startingUniverse < 1) {
+        alert("Invalid universe number. Please enter a valid number starting from 1.");
+        return;
+    }
+
+    // Loop through each instrument and assign dimmer value to address if address is empty or 0
+    for (const instrument of originalData) {
+        if ((!instrument.address || instrument.address === "0") && instrument.dimmer) {
+            const dimmerValue = parseInt(instrument.dimmer, 10);
+
+            if (!isNaN(dimmerValue) && dimmerValue > 0) {
+                // Calculate the correct address using the formula
+                const address = dimmerValue + ((startingUniverse - 1) * 512);
+                instrument.address = address.toString();
+            }
+        }
+    }
+    resetSearch()
+}
+
+
+
+
 
 
 </script>
