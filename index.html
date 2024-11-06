@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Imports -->
+    <!--Page Info-->
     <title>Light Rewrite</title>
+    <link rel="icon" href="lightRewriteIconBlack.ico" type="image/x-icon">
+    <!-- Imports -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
@@ -15,7 +17,17 @@
             margin: 20px; 
         }
         h1 {
-            text-align: center; /* Center the title */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon {
+            width: 30px; /* Adjust size of the icon */
+            height: 30px;
+            margin: 0 10px; /* Space between text and image */
+        }
+        .mirrored {
+            transform: scaleX(-1); /* Mirroring the right image */
         }
         .menu-bar { 
             background-color: #f0f0f0; 
@@ -63,7 +75,11 @@
 </head>
 <body>
 
-<h1>Light Rewrite Web</h1> <!-- Title added -->
+    <h1> <!--Title-->
+        <img src="lightRewriteIconBlack.ico" alt="Left Icon" class="icon">
+        Light Rewrite Web
+        <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
+    </h1>
 
 <div class="menu-bar"> <!--Menu Bar-->
     <div class="dropdown">
@@ -83,7 +99,13 @@
         <button>Search</button>
         <div class="dropdown-content">
             <div class="search-option">
-                <a href="#" onclick="searchByChannel()">Search by Channel Numbers</a>
+                <a href="#" onclick="searchByChannel()">Channel</a>
+            </div>
+            <div class="search-option">
+                <a href="#" onclick="searchByAddress()">Address</a>
+            </div>
+            <div class="search-option">
+                <a href="#" onclick="searchByPosition()">Position</a>
             </div>
             <div class="search-option">
                 <a href="#" onclick="resetSearch()">Reset</a> <!-- Reset option added -->
@@ -111,7 +133,11 @@
     
 </div>
 
+<div class="instruction" id="instructionBox2">"Perform a complete export on exit" in Vecorworks</div> <!-- Instruction box positioned below the menu -->
 <div class="instruction" id="instructionBox">Use the File menu to upload an XML file.</div> <!-- Instruction box positioned below the menu -->
+<div class="instruction" id="instructionBox3">Instructions on how to get XML file:</div> <!-- Instruction box positioned below the menu -->
+<div class="instruction" id="instructionBox4">In Vectoworks go: Spotlight > Spotlight Settings > Spotlight Settings > Lightwright > Use Automatic Lightwright Data Exchange > Perform a complete export on exit > OK</div> <!-- Instruction box positioned below the menu -->
+
 
 <div id="searchInfo" style="display: none;">Currently Searching: <span id="searchCriteria"></span></div> <!-- Search info box -->
 
@@ -136,7 +162,7 @@
 
 <script>
 //Version
-const version = 'v1_4_4'
+const version = 'v1_4_7'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -223,6 +249,9 @@ function processFile() {
 
             document.getElementById('dataTable').style.display = 'block';
             document.getElementById('instructionBox').style.display = 'none';
+            document.getElementById('instructionBox2').style.display = 'none';
+            document.getElementById('instructionBox3').style.display = 'none';
+            document.getElementById('instructionBox4').style.display = 'none';
             document.getElementById('searchInfo').style.display = 'none';
 
             if (!tableInitialized) {
@@ -271,13 +300,19 @@ function searchByChannel() {
     if (input) {
         const filterValues = input.split(',').map(x => x.trim());
         const filteredData = originalData.filter(item => 
-            filterValues.some(value => isInRange(item.channel, value) || item.channel === value.trim())
+            filterValues.some(value => isInChannelRange(item.channel, value) || item.channel === value.trim())
         );
 
         const tableBody = document.getElementById('tableBody');
         tableBody.innerHTML = ''; // Clear existing rows
 
+
         filteredData.forEach(item => { //Data Point Add
+            // Extract accessory types into a string, or show "N/A" if there are no accessories
+            const accessoriesText = item.accessories && item.accessories.length > 0
+                ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
+                : "N/A";
+                
             const row = `<tr>
                 <td>${item.channel}</td>
                 <td>${item.position}</td>
@@ -288,7 +323,7 @@ function searchByChannel() {
                 <td>${item.address}</td>
                 <td>${item.color}</td>
                 <td>${item.gobo}</td>
-                <td>${item.accessories}</td>
+                <td>${accessoriesText}</td>
             </tr>`;
             tableBody.innerHTML += row;
         });
@@ -301,7 +336,7 @@ function searchByChannel() {
     }
 }
 
-function isInRange(channel, input) {
+function isInChannelRange(channel, input) {
     const rangePattern = /(\d+)-(\d+)/; // Regex to match ranges like 1-5
     const match = input.match(rangePattern);
     if (match) {
@@ -312,12 +347,148 @@ function isInRange(channel, input) {
     return false;
 }
 
+function searchByAddress() {
+    const input = prompt("Enter a range (e.g., 100-200) or a list of addresses (e.g., 100,150,200):");
+    if (input) {
+        const filterValues = input.split(',').map(x => x.trim());
+        const filteredData = originalData.filter(item => 
+            filterValues.some(value => isInAddressRange(item.address, value) || item.address === value.trim())
+        );
+
+        const tableBody = document.getElementById('tableBody');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+
+        filteredData.forEach(item => { //Data Point Add
+            // Extract accessory types into a string, or show "N/A" if there are no accessories
+            const accessoriesText = item.accessories && item.accessories.length > 0
+                ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
+                : "N/A";
+
+            const row = `<tr>
+                <td>${item.channel}</td>
+                <td>${item.position}</td>
+                <td>${item.unit}</td>
+                <td>${item.purpose}</td>
+                <td>${item.type}</td>
+                <td>${item.dimmer}</td>
+                <td>${item.address}</td>
+                <td>${item.color}</td>
+                <td>${item.gobo}</td>
+                <td>${accessoriesText}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+        });
+
+        $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+        
+        // Display the search criteria
+        document.getElementById('searchInfo').style.display = 'block';
+        document.getElementById('searchCriteria').innerText = input; // Show current search criteria
+    }
+}
+
+function isInAddressRange(address, input) {
+    const rangePattern = /(\d+)-(\d+)/; // Regex to match ranges like 100-200
+    const match = input.match(rangePattern);
+    if (match) {
+        const start = parseInt(match[1]);
+        const end = parseInt(match[2]);
+        return parseInt(address) >= start && parseInt(address) <= end;
+    }
+    return false;
+}
+
+async function searchByPosition() {
+    const uniquePositions = [...new Set(originalData.map(item => item.position))]; // Get unique positions
+
+    // Create the checkboxes dynamically
+    let checkboxHTML = uniquePositions.map(position => {
+        return `<label><input type="checkbox" value="${position}"> ${position}</label><br>`;
+    }).join('');
+
+    // Display the user selection box at the top
+    const userSelectionBox = createSelectionBox(checkboxHTML);
+    document.body.insertBefore(userSelectionBox, document.getElementById('dataTable').parentNode); // Insert above the table
+
+    // Wait for the user to make their selection
+    const userSelection = await promptUserToSelectPositions(userSelectionBox, checkboxHTML);
+
+    if (userSelection) {
+        const selectedPositions = userSelection.split(',').map(position => position.trim());
+        const filteredData = originalData.filter(item => 
+            selectedPositions.includes(item.position)
+        );
+
+        const tableBody = document.getElementById('tableBody');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+        filteredData.forEach(item => { // Data Point Add
+            // Extract accessory types into a string, or show "N/A" if there are no accessories
+            const accessoriesText = item.accessories && item.accessories.length > 0
+                ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
+                : "N/A";
+
+            const row = `<tr>
+                <td>${item.channel}</td>
+                <td>${item.position}</td>
+                <td>${item.unit}</td>
+                <td>${item.purpose}</td>
+                <td>${item.type}</td>
+                <td>${item.dimmer}</td>
+                <td>${item.address}</td>
+                <td>${item.color}</td>
+                <td>${item.gobo}</td>
+                <td>${accessoriesText}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+        });
+
+        $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+        
+        // Display the search criteria
+        document.getElementById('searchInfo').style.display = 'block';
+        document.getElementById('searchCriteria').innerText = `Positions: ${userSelection}`; // Show current search criteria
+    }
+}
+
+function createSelectionBox(checkboxHTML) {
+    const box = document.createElement('div');
+    box.id = 'selectionBox';
+    box.innerHTML = `
+        <h3>Select Positions</h3>
+        <div>${checkboxHTML}</div>
+        <button id="submitSelection">Submit</button>
+    `;
+    return box;
+}
+
+function promptUserToSelectPositions(userSelectionBox, checkboxHTML) {
+    return new Promise((resolve) => {
+        document.getElementById('submitSelection').addEventListener('click', () => {
+            const selectedPositions = [...userSelectionBox.querySelectorAll('input[type="checkbox"]:checked')].map(input => input.value);
+            resolve(selectedPositions.join(','));
+
+            // Remove the selection box after submission
+            document.body.removeChild(userSelectionBox);
+        });
+    });
+}
+
+
+
+
 function resetSearch() {
     const tableBody = document.getElementById('tableBody');
     tableBody.innerHTML = ''; // Clear existing rows
 
     // Re-add all original data entries
-    originalData.forEach(item => { //Data Point Add
+    originalData.forEach(item => {
+        // Extract accessory types into a string, or show "N/A" if there are no accessories
+        const accessoriesText = item.accessories && item.accessories.length > 0
+            ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
+            : "N/A";
+
         const row = `<tr>
             <td>${item.channel}</td>
             <td>${item.position}</td>
@@ -328,8 +499,8 @@ function resetSearch() {
             <td>${item.address}</td>
             <td>${item.color}</td>
             <td>${item.gobo}</td>
-            <td>${item.accessories}</td>
-        </tr>`;
+            <td>${accessoriesText}</td>
+        </tr>`; //Data Point Add
         tableBody.innerHTML += row;
     });
 
@@ -340,8 +511,9 @@ function resetSearch() {
     document.getElementById('searchInfo').style.display = 'none';
 }
 
+
 function exportChannelHookup() {
-    function createHeader(pageNumber) {
+    function createHeader(pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                 <h1 style="margin: 0;">Channel Hookup ${showName}</h1>
@@ -408,7 +580,7 @@ function exportChannelHookup() {
                 <span style="width: 12%;">${accessoriesText}</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
-        });
+        });//Data Point Add
 
         const footerContent = createFooter(pageNumber);
         pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
@@ -432,7 +604,7 @@ function exportChannelHookup() {
 }
 
 function exportInstrumentSchedule() {
-    function createHeader(position, pageNumber) {
+    function createHeader(position, pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                 <h1 style="margin: 0;">Instrument Schedule</h1>
@@ -517,7 +689,7 @@ function exportInstrumentSchedule() {
             <span style="width: 12%;">${instrument.gobo}</span>
             <span style="width: 12%;">${accessoriesText}</span>
         </div>
-        <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+        <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`; //Data Point Add
 
         // Increment instrument count for the current page
         instrumentsInPosition++;
@@ -546,7 +718,7 @@ function exportInstrumentSchedule() {
 }
 
 function exportColorCount() {
-    function createHeader(pageNumber) {
+    function createHeader(pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                 <h1 style="margin: 0;">Color Count ${showName}</h1>
