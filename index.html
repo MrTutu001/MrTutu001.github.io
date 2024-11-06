@@ -94,8 +94,17 @@
     <div class="dropdown">
         <button>Exports</button>
         <div class="dropdown-content">
-            <div class="search-option">
+            <div class="exports">
                 <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
+            </div>
+            <div class="exports">
+                <a href="#" onclick="exportInstrumentSchedule()">Instrument Schedule</a>
+            </div>
+            <div class="exports">
+                <a href="#" onclick="exportColorCount()">Color Count</a>
+            </div>
+            <div class="exports">
+                <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
             </div>
         </div>
     </div>
@@ -113,9 +122,12 @@
             <th>Position</th>
             <th>Unit</th>
             <th>Purpose</th>
+            <th>Type</th>
             <th>Dimmer</th>
             <th>Address</th>
             <th>Color</th>
+            <th>Gobo</th>
+            <th>Accessories</th>
         </tr>
     </thead>
     <tbody id="tableBody">
@@ -123,6 +135,8 @@
 </table>
 
 <script>
+//Version
+const version = 'v1_4_4'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -164,43 +178,63 @@ function processFile() {
             originalData = []; // Clear original data array
 
             // Start from the 6th instrument (index 5) to skip the first 5
-            for (let i = 5; i < instruments.length; i++) { //Data Point Add
+            for (let i = 5; i < instruments.length; i++) { // Data Point Add
                 const instrument = instruments[i];
                 const channel = instrument.querySelector('Channel')?.textContent || '';
                 const position = instrument.querySelector('Position')?.textContent || '';
                 const unit = instrument.querySelector('Unit_Number')?.textContent || '';
                 const purpose = instrument.querySelector('Purpose')?.textContent || '';
+                const type = instrument.querySelector('Inst_Type')?.textContent || '';
                 const dimmer = instrument.querySelector('Dimmer')?.textContent || '';
                 const address = instrument.querySelector('Absolute_Address')?.textContent || '';
                 const color = instrument.querySelector('Color')?.textContent || '';
+                const gobo = instrument.querySelector('Template')?.textContent || '';
+
+                // Parse accessories
+                const accessories = [];
+                const accessoriesElement = instrument.querySelector('Accessories');
+                if (accessoriesElement) {
+                    const accessoryItems = Array.from(accessoriesElement.children);
+                    for (const accessory of accessoryItems) {
+                        const accessoryType = accessory.querySelector('Inst_Type')?.textContent || 'Unknown';
+                        //const accessorySymbol = accessory.querySelector('Symbol_Name')?.textContent || 'Unknown';
+                        accessories.push({ type: accessoryType });
+                    }
+                }
+
+                const accessoryText = accessories.map(a => `${a.type}`).join(', ');
 
                 const row = `<tr> 
                     <td>${channel}</td>
                     <td>${position}</td>
                     <td>${unit}</td>
                     <td>${purpose}</td>
+                    <td>${type}</td>
                     <td>${dimmer}</td>
                     <td>${address}</td>
                     <td>${color}</td>
+                    <td>${gobo}</td>
+                    <td>${accessoryText}</td>
                 </tr>`; //Data Point Add
                 tableBody.innerHTML += row;
-                originalData.push({ channel, position, unit, purpose, dimmer, address, color }); // Save data //Data Point Add
+
+                originalData.push({ channel, position, unit, purpose, type, dimmer, address, color, gobo, accessories }); //Data Point Add
             }
 
             document.getElementById('dataTable').style.display = 'block';
-            document.getElementById('instructionBox').style.display = 'none'; // Hide instruction box
-            document.getElementById('searchInfo').style.display = 'none'; // Hide search info
+            document.getElementById('instructionBox').style.display = 'none';
+            document.getElementById('searchInfo').style.display = 'none';
 
             if (!tableInitialized) {
                 $('#dataTable').DataTable({
-                    searching: false,  // Disable the search bar
-                    paging: false,     // Disable pagination
-                    info: false,       // Disable the info display
-                    order: [],         // Disable default ordering
+                    searching: false,
+                    paging: false,
+                    info: false,
+                    order: [],
                     columnDefs: [
                         {
-                            targets: 1, // Target the Position column (index 1)
-                            orderData: [1, 2], // Sort by Position (index 1) and then by Unit Number (index 2)
+                            targets: 1,
+                            orderData: [1, 2],
                         }
                     ]
                 });
@@ -217,6 +251,7 @@ function processFile() {
 
     reader.readAsText(file);
 }
+
 
 // Function to ask for show information and save it in global variables
 function getShowInfo() {
@@ -248,9 +283,12 @@ function searchByChannel() {
                 <td>${item.position}</td>
                 <td>${item.unit}</td>
                 <td>${item.purpose}</td>
+                <td>${item.type}</td>
                 <td>${item.dimmer}</td>
                 <td>${item.address}</td>
                 <td>${item.color}</td>
+                <td>${item.gobo}</td>
+                <td>${item.accessories}</td>
             </tr>`;
             tableBody.innerHTML += row;
         });
@@ -285,9 +323,12 @@ function resetSearch() {
             <td>${item.position}</td>
             <td>${item.unit}</td>
             <td>${item.purpose}</td>
+            <td>${item.type}</td>
             <td>${item.dimmer}</td>
             <td>${item.address}</td>
             <td>${item.color}</td>
+            <td>${item.gobo}</td>
+            <td>${item.accessories}</td>
         </tr>`;
         tableBody.innerHTML += row;
     });
@@ -300,8 +341,7 @@ function resetSearch() {
 }
 
 function exportChannelHookup() {
-    // Function to create the header
-    function createHeader(pageNumber) { //Data Point Add
+    function createHeader(pageNumber) {
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                 <h1 style="margin: 0;">Channel Hookup ${showName}</h1>
@@ -309,27 +349,124 @@ function exportChannelHookup() {
                 <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
             </div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
-                <span style="width: 15%;">Channel</span>
-                <span style="width: 15%;">Position</span>
-                <span style="width: 15%;">Unit</span>
-                <span style="width: 15%;">Purpose</span>
-                <span style="width: 15%;">Address</span>
-                <span style="width: 15%;">Color</span>
+                <span style="width: 12%;">Channel</span>
+                <span style="width: 12%;">Position</span>
+                <span style="width: 12%;">Unit</span>
+                <span style="width: 12%;">Purpose</span>
+                <span style="width: 12%;">Type</span>
+                <span style="width: 12%;">Address</span>
+                <span style="width: 12%;">Color</span>
+                <span style="width: 12%;">Gobo</span>
+                <span style="width: 12%;">Accessories</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
         `;
     }
-    // Function to create the footer
+
     function createFooter(pageNumber) {
         return `
             <div style="text-align: center; font-size: 8px; margin-top: 20px;">
-                <p>This was generated using Light Rewrite Web</p>
+                <p>This was generated using Light Rewrite Web ${version}</p>
             </div>
         `;
     }
-    // Sort originalData by channel numbers (assuming they are numeric)
+
+    const data = originalData.sort((a, b) => parseInt(a.channel) - parseInt(b.channel));
+
+    if (data.length === 0) {
+        alert('No instrument data available for export.');
+        return;
+    }
+
+    const pdfDiv = document.createElement('div');
+    pdfDiv.style.width = '100%';
+    pdfDiv.style.fontSize = '12px';
+
+    const instrumentsPerPage = 20;
+    let pageNumber = 1;
+
+    for (let i = 0; i < data.length; i += instrumentsPerPage) {
+        const chunk = data.slice(i, i + instrumentsPerPage);
+        const headerContent = createHeader(pageNumber);
+
+        let pdfContent = '';
+        chunk.forEach((instrument) => {
+            // Extract accessories if they exist and only display the type
+            const accessoriesText = instrument.accessories && instrument.accessories.length > 0
+                ? instrument.accessories.map(acc => acc.type || "Unknown").join("; ")
+                : "N/A";
+
+            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+                <span style="width: 12%;">${instrument.channel}</span>
+                <span style="width: 12%;">${instrument.position}</span>
+                <span style="width: 12%;">${instrument.unit}</span>
+                <span style="width: 12%;">${instrument.purpose}</span>
+                <span style="width: 12%;">${instrument.type}</span>
+                <span style="width: 12%;">${instrument.address}</span>
+                <span style="width: 12%;">${instrument.color}</span>
+                <span style="width: 12%;">${instrument.gobo}</span>
+                <span style="width: 12%;">${accessoriesText}</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+        });
+
+        const footerContent = createFooter(pageNumber);
+        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+        if (i + instrumentsPerPage < data.length) {
+            pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+        }
+
+        pageNumber++;
+    }
+
+    const pdfOptions = {
+        margin:       0.5,
+        filename:     `${uploadedFileName}_channel_hookup.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
+
+function exportInstrumentSchedule() {
+    function createHeader(position, pageNumber) {
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h1 style="margin: 0;">Instrument Schedule</h1>
+                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+            </div>
+            <div style="text-align: left; font-size: 15px; font-weight: bold">Position: ${position}</div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%; margin-top: 10px;">
+                <span style="width: 12%;">Unit</span>
+                <span style="width: 12%;">Purpose</span>
+                <span style="width: 12%;">Type</span>
+                <span style="width: 12%;">Channel</span>
+                <span style="width: 12%;">Address</span>
+                <span style="width: 12%;">Color</span>
+                <span style="width: 12%;">Gobo</span>
+                <span style="width: 12%;">Accessories</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
+
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+                <p>This was generated using Light Rewrite Web ${version}</p>
+            </div>
+        `;
+    }
+
     const data = originalData.sort((a, b) => {
-        return parseInt(a.channel) - parseInt(b.channel); // Sort in ascending order
+        if (a.position === b.position) {
+            return parseInt(a.unit) - parseInt(b.unit);
+        }
+        return a.position.localeCompare(b.position);
     });
 
     if (data.length === 0) {
@@ -337,65 +474,287 @@ function exportChannelHookup() {
         return;
     }
 
-    // Create a temporary div for PDF content
     const pdfDiv = document.createElement('div');
-    pdfDiv.style.width = '100%'; // Ensure the div takes full width
-    pdfDiv.style.fontSize = '12px'; // Set font size for readability
+    pdfDiv.style.width = '100%';
+    pdfDiv.style.fontSize = '12px';
 
-    // Define number of instruments per page
-    const instrumentsPerPage = 20;
-    let pageNumber = 1; // Initialize page number
+    const instrumentsPerPage = 14; // Limit to 15 instruments per page
+    let pageNumber = 1;
+    let lastPosition = ''; // Track the last position to detect changes
+    let instrumentsInPosition = 0; // Track the number of instruments on the current page
 
-    // Create PDF content by chunks of instruments
-    for (let i = 0; i < data.length; i += instrumentsPerPage) {
-        const chunk = data.slice(i, i + instrumentsPerPage);
+    for (let i = 0; i < data.length; i++) {
+        const instrument = data[i];
 
-        // Add a header for the page
-        const headerContent = createHeader(pageNumber);
-        
-        // Add each instrument data in the current chunk
-        let pdfContent = '';
-        chunk.forEach((instrument) => { // Data Point Add
-            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
-                <span style="width: 15%;">${instrument.channel}</span>
-                <span style="width: 15%;">${instrument.position}</span>
-                <span style="width: 15%;">${instrument.unit}</span>
-                <span style="width: 15%;">${instrument.purpose}</span>
-                <span style="width: 15%;">${instrument.address}</span>
-                <span style="width: 15%;">${instrument.color}</span>
-            </div>
-            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`; // Add separator line
-        });
+        // If the position is different, or we have reached the instrument limit per page, 
+        // add a page break and reset the instrument count
+        if (instrument.position !== lastPosition || instrumentsInPosition === instrumentsPerPage) {
+            // If it's not the first position, add a page break
+            if (lastPosition !== '') {
+                pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+            }
 
-        // Add a footer for the page
-        const footerContent = createFooter(pageNumber);
+            // Add the header for the new position
+            pdfDiv.innerHTML += createHeader(instrument.position, pageNumber);
+            lastPosition = instrument.position; // Update last position
+            instrumentsInPosition = 0; // Reset counter for instruments
 
-        // Combine the header, content, and footer for this page
-        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
-
-        // Add a page break after the content only if it's not the last page
-        if (i + instrumentsPerPage < data.length) {
-            pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+            pageNumber++; // Increment page number
         }
-        
-        pageNumber++; // Increment page number for the next page
+
+        // Add the instrument to the page
+        const accessoriesText = instrument.accessories && instrument.accessories.length > 0
+            ? instrument.accessories.map(acc => acc.type || "Unknown").join("; ")
+            : "N/A";
+
+        pdfDiv.innerHTML += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+            <span style="width: 12%;">${instrument.unit}</span>
+            <span style="width: 12%;">${instrument.purpose}</span>
+            <span style="width: 12%;">${instrument.type}</span>
+            <span style="width: 12%;">${instrument.channel}</span>
+            <span style="width: 12%;">${instrument.address}</span>
+            <span style="width: 12%;">${instrument.color}</span>
+            <span style="width: 12%;">${instrument.gobo}</span>
+            <span style="width: 12%;">${accessoriesText}</span>
+        </div>
+        <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+
+        // Increment instrument count for the current page
+        instrumentsInPosition++;
+         // If we have reached the limit for the page, insert a page break and footer
+         if (instrumentsInPosition === instrumentsPerPage) {
+            // Add the footer at the bottom of the page after the instruments
+            pdfDiv.innerHTML += createFooter(pageNumber);
+        }
+
+        // If it's the last instrument for this position or last in data, insert the page break
+        if (i === data.length - 1 || data[i + 1].position !== instrument.position) {
+            const footerContent = createFooter(pageNumber);
+            pdfDiv.innerHTML += footerContent;
+        }
     }
 
-    // Create PDF using html2pdf
     const pdfOptions = {
-        margin:       0.5, // Adjust margin for better placement
-        filename:     `${uploadedFileName}_channel_hookup.pdf`,
+        margin:       0.5,
+        filename:     `${uploadedFileName}_instrument_schedule.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
     };
 
-    // Generate and save PDF
     html2pdf().from(pdfDiv).set(pdfOptions).save();
 }
 
+function exportColorCount() {
+    function createHeader(pageNumber) {
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h1 style="margin: 0;">Color Count ${showName}</h1>
+                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+            </div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
+                <span style="width: 45%;">Color</span>
+                <span style="width: 45%;">Instrument Type</span>
+                <span style="width: 10%;">Count</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
 
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+                <p>This was generated using Light Rewrite Web ${version}</p>
+            </div>
+        `;
+    }
 
+    // Create a map to count colors by instrument type (using "type" field)
+    const colorCount = {};
+
+    originalData.forEach(instrument => {
+        const color = instrument.color || "Unknown";  // Default to "Unknown" if no color
+        const instType = instrument.type || "Unknown";  // Use "type" for instrument type
+
+        // Debugging: Log the inst_type and color for each instrument
+        console.log(`Instrument: ${instrument.channel}, Color: ${color}, Instrument Type: ${instType}`);
+
+        if (!colorCount[color]) {
+            colorCount[color] = {};
+        }
+
+        if (!colorCount[color][instType]) {
+            colorCount[color][instType] = 0;
+        }
+
+        colorCount[color][instType]++;
+    });
+
+    // Flatten the colorCount object into an array for easy PDF generation
+    const colorReport = [];
+    for (const color in colorCount) {
+        for (const instType in colorCount[color]) {
+            colorReport.push({
+                color: color,
+                instType: instType,
+                count: colorCount[color][instType]
+            });
+        }
+    }
+
+    // Sort the report alphabetically by color and instrument type
+    colorReport.sort((a, b) => {
+        if (a.color === b.color) {
+            return a.instType.localeCompare(b.instType);
+        }
+        return a.color.localeCompare(b.color);
+    });
+
+    if (colorReport.length === 0) {
+        alert('No color data available for export.');
+        return;
+    }
+
+    const pdfDiv = document.createElement('div');
+    pdfDiv.style.width = '100%';
+    pdfDiv.style.fontSize = '12px';
+
+    const itemsPerPage = 20;
+    let pageNumber = 1;
+
+    for (let i = 0; i < colorReport.length; i += itemsPerPage) {
+        const chunk = colorReport.slice(i, i + itemsPerPage);
+        const headerContent = createHeader(pageNumber);
+
+        let pdfContent = '';
+        chunk.forEach((report) => {
+            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+                <span style="width: 45%;">${report.color}</span>
+                <span style="width: 45%;">${report.instType}</span>
+                <span style="width: 10%;">${report.count}</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+        });
+
+        const footerContent = createFooter(pageNumber);
+        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+        if (i + itemsPerPage < colorReport.length) {
+            pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+        }
+
+        pageNumber++;
+    }
+
+    const pdfOptions = {
+        margin:       0.5,
+        filename:     `${uploadedFileName}_color_count.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
+
+function exportInstrumentTypeCount() {
+    function createHeader(pageNumber) {
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h1 style="margin: 0;">Instrument Type Count ${showName}</h1>
+                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+            </div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
+                <span style="width: 80%;">Instrument Type</span>
+                <span style="width: 20%;">Count</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
+
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+                <p>This was generated using Light Rewrite Web ${version}</p>
+            </div>
+        `;
+    }
+
+    // Create a map to count the instrument types
+    const typeCount = {};
+
+    originalData.forEach(instrument => {
+        const instType = instrument.type || "Unknown";  // Use "type" field for instrument type
+
+        // Debugging: Log the instrument type for each instrument
+        console.log(`Instrument: ${instrument.channel}, Instrument Type: ${instType}`);
+
+        if (!typeCount[instType]) {
+            typeCount[instType] = 0;
+        }
+
+        typeCount[instType]++;
+    });
+
+    // Convert the typeCount object into an array for easy PDF generation
+    const typeReport = [];
+    for (const instType in typeCount) {
+        typeReport.push({
+            instType: instType,
+            count: typeCount[instType]
+        });
+    }
+
+    // Sort the report alphabetically by instrument type
+    typeReport.sort((a, b) => a.instType.localeCompare(b.instType));
+
+    if (typeReport.length === 0) {
+        alert('No instrument type data available for export.');
+        return;
+    }
+
+    const pdfDiv = document.createElement('div');
+    pdfDiv.style.width = '100%';
+    pdfDiv.style.fontSize = '12px';
+
+    const itemsPerPage = 20;
+    let pageNumber = 1;
+
+    for (let i = 0; i < typeReport.length; i += itemsPerPage) {
+        const chunk = typeReport.slice(i, i + itemsPerPage);
+        const headerContent = createHeader(pageNumber);
+
+        let pdfContent = '';
+        chunk.forEach((report) => {
+            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+                <span style="width: 80%;">${report.instType}</span>
+                <span style="width: 20%;">${report.count}</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+        });
+
+        const footerContent = createFooter(pageNumber);
+        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+        if (i + itemsPerPage < typeReport.length) {
+            pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+        }
+
+        pageNumber++;
+    }
+
+    const pdfOptions = {
+        margin:       0.5,
+        filename:     `${uploadedFileName}_instrument_type_count.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
 
 
 </script>
