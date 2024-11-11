@@ -85,12 +85,32 @@
     <div class="dropdown">
         <button>File</button>
         <div class="dropdown-content">
-            <label for="fileInput" class="file-upload">
-                <input type="file" id="fileInput" accept=".xml" style="display: none;" onchange="processFile()">
-                <a href="#" onclick="document.getElementById('fileInput').click(); return false;">Upload XML File</a>
-            </label>
+            <div class="file-upload">
+                <a href="#" class="upload-trigger">Upload -></a>
+                <div class="upload-submenu" style="position: absolute; left: 100%; top: 0; display: none; background-color: white; border: 1px solid #ddd; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);">
+                    <label for="fileInput" class="file-upload">
+                        <input type="file" id="fileInput" accept=".xml" style="display: none;" onchange="processFile()">
+                        <a href="#" onclick="document.getElementById('fileInput').click(); return false;">XML</a>
+                    </label>
+                    <label for="csvFileInput" class="file-upload">
+                        <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="processCSVFile()">
+                        <a href="#" onclick="document.getElementById('csvFileInput').click(); return false;">CSV</a>
+                    </label>
+                </div>
+                <script>
+                    document.querySelector('.upload-trigger').addEventListener('mouseover', function(e) {
+                        document.querySelector('.upload-submenu').style.display = 'block';
+                    });
+                    document.querySelector('.file-upload').addEventListener('mouseleave', function(e) {
+                        document.querySelector('.upload-submenu').style.display = 'none';
+                    });
+                </script>
+            </div>
             <div class="showInfo">
                 <a href="#" onclick="getShowInfo()">Show Info</a>
+            </div>
+            <div class="clearData">
+                <a href="#" onclick="clearStoredData()">Reset</a>
             </div>
         </div>
     </div>
@@ -100,6 +120,18 @@
         <div class="dropdown-content">
             <div class="tools">
                 <a href="#" onclick="populateAddressFromDimmer()">Dimmer to Address</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="dropdown">
+        <button>Views</button>
+        <div class="dropdown-content">
+            <div class="views">
+                <a href="#" onclick="showMainView()">Main</a>
+            </div>
+            <div class="views">
+                <a href="#" onclick="createSpreadsheet()">Work Notes</a>
             </div>
         </div>
     </div>
@@ -126,19 +158,38 @@
         <button>Exports</button>
         <div class="dropdown-content">
             <div class="exports">
-                <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
-            </div>
-            <div class="exports">
-                <a href="#" onclick="exportInstrumentSchedule()">Instrument Schedule</a>
-            </div>
-            <div class="exports">
-                <a href="#" onclick="exportColorCount()">Color Count</a>
-            </div>
-            <div class="exports">
-                <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
+                <a href="#" class="export-trigger">Paperwork -></a>
+                <div class="exports-submenu" style="position: absolute; left: 100%; top: 0; display: none; background-color: white; border: 1px solid #ddd; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);">
+                    <div class="exports">
+                        <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
+                    </div>
+                    <div class="exports">
+                        <a href="#" onclick="exportInstrumentSchedule()">Instrument Schedule</a>
+                    </div>
+                    <div class="exports">
+                        <a href="#" onclick="exportColorCount()">Color Count</a>
+                    </div>
+                    <div class="exports">
+                        <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
+                    </div>
+                    <div class="exports">
+                        <a href="#" onclick="exportWorkNotes()">Work Notes</a>
+                    </div>
+                </div>
+                <script>
+                    document.querySelector('.export-trigger').addEventListener('mouseover', function(e) {
+                        document.querySelector('.exports-submenu').style.display = 'block';
+                    });
+                    document.querySelector('.exports').addEventListener('mouseleave', function(e) {
+                        document.querySelector('.exports-submenu').style.display = 'none';
+                    });
+                </script>
             </div>
             <div class="exports">
                 <a href="#" onclick="generatePatchFile()">EOS Patch</a>
+            </div>
+            <div class="exports">
+                <a href="#" onclick="exportTableToCSV()">CSV</a>
             </div>
         </div>
     </div>
@@ -174,7 +225,7 @@
 
 <script>
 //Version
-const version = 'v1_5_2'
+const version = 'v1_6_3'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -184,6 +235,104 @@ let uploadedFileName = ''; // Global variable to store the uploaded file name
 let showName = '';
 let designer = '';
 let headElectrician = '';
+// Add this at the top of your script section, with other global variables
+let workNotesContainer = null; // Global reference to work notes container
+const workNoteHeaders = ['Channel', 'Position', 'Unit', 'Purpose', 'Type', 'Dimmer', 'Address', 'Color', 'Gobo', 'Accessories', 'Notes'];
+
+// Add these functions to handle saving/loading state
+function saveState() {
+    const state = {
+        originalData,
+        uploadedFileName,
+        showName,
+        designer,
+        headElectrician,
+        workNotes: workNotesContainer ? workNotesContainer.innerHTML : null,
+        version // Include version for compatibility checking
+    };
+    localStorage.setItem('lightRewriteState', JSON.stringify(state));
+}
+
+function loadState() {
+    const savedState = localStorage.getItem('lightRewriteState');
+    if (savedState) {
+        const state = JSON.parse(savedState);
+        
+        // Version check
+        if (state.version !== version) {
+            localStorage.removeItem('lightRewriteState');
+            return false;
+        }
+
+        originalData = state.originalData;
+        uploadedFileName = state.uploadedFileName;
+        showName = state.showName;
+        designer = state.designer;
+        headElectrician = state.headElectrician;
+
+        // Restore the table if there's data
+        if (originalData.length > 0) {
+            document.getElementById('dataTable').style.display = 'block';
+            document.getElementById('instructionBox').style.display = 'none';
+            document.getElementById('instructionBox2').style.display = 'none';
+            document.getElementById('instructionBox3').style.display = 'none';
+            document.getElementById('instructionBox4').style.display = 'none';
+            
+            // Populate the table
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            originalData.forEach(item => {
+                const accessoriesText = item.accessories && item.accessories.length > 0
+                    ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
+                    : "";
+                
+                const row = `<tr>
+                    <td>${item.channel}</td>
+                    <td>${item.position}</td>
+                    <td>${item.unit}</td>
+                    <td>${item.purpose}</td>
+                    <td>${item.type}</td>
+                    <td>${item.dimmer}</td>
+                    <td>${item.address}</td>
+                    <td>${item.color}</td>
+                    <td>${item.gobo}</td>
+                    <td>${accessoriesText}</td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+
+            // Initialize or refresh DataTable
+            if (!tableInitialized) {
+                $('#dataTable').DataTable({
+                    searching: false,
+                    paging: false,
+                    info: false,
+                    order: [],
+                    columnDefs: [{
+                        targets: 1,
+                        orderData: [1, 2],
+                    }]
+                });
+                tableInitialized = true;
+            } else {
+                $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+            }
+        }
+
+        // Restore work notes if they exist
+        if (state.workNotes) {
+            workNotesContainer = document.createElement('div');
+            workNotesContainer.id = 'workNotesTable';
+            workNotesContainer.style.overflowX = 'auto';
+            workNotesContainer.innerHTML = state.workNotes;
+            workNotesContainer.style.display = 'none';
+            document.body.appendChild(workNotesContainer);
+        }
+
+        return true;
+    }
+    return false;
+}
 
 function processFile() {
     const fileInput = document.getElementById('fileInput');
@@ -284,6 +433,8 @@ function processFile() {
                 $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
             }
 
+            saveState();
+
         } catch (error) {
             console.error("Error parsing XML file:", error);
             alert("An error occurred while processing the XML file. Please check the console for details.");
@@ -304,6 +455,8 @@ function getShowInfo() {
     showName = showName ? showName : "Unnamed Show";
     designer = designer ? designer : "Unknown Designer";
     headElectrician = headElectrician ? headElectrician : "Unknown Head Electrician";
+
+    saveState();
 }
 
 
@@ -997,10 +1150,554 @@ function populateAddressFromDimmer() {
     resetSearch()
 }
 
+function exportTableToCSV() {
+    // Initialize CSV content with headers
+    let csvContent = "Channel,Position,Unit,Purpose,Type,Dimmer,Address,Color,Gobo,Accessories\n";
+
+    // Iterate through each instrument in originalData
+    for (const instrument of originalData) {
+        let row = [
+            instrument.channel || '',
+            instrument.position || '',
+            instrument.unit || '',
+            instrument.purpose || '',
+            instrument.type || '',
+            instrument.dimmer || '',
+            instrument.address || '',
+            instrument.color || '',
+            instrument.gobo || ''
+        ];
+
+        // Handle accessories
+        let accessories = '';
+        if (Array.isArray(instrument.accessories)) {
+            accessories = instrument.accessories.map(acc => {
+                return Object.entries(acc)
+                    .filter(([key]) => key === 'type') // Only keep the type field
+                    .map(([key, value]) => value) // Just take the value
+                    .join(';');
+            }).join('|');
+        }
+        row.push(accessories);
+
+        // Escape fields and join into a CSV row
+        csvContent += row.map(field => `"${(field + '').replace(/"/g, '""')}"`).join(',') + '\n';
+    }
+
+    // Create a Blob from the CSV string
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // Create a download link and trigger the download
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${uploadedFileName}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
 
+// Function to create the table and handle auto-fill functionality
+function createSpreadsheet() {
+    // Hide the original DataTable
+    document.getElementById('dataTable').style.display = 'none';
+    
+    // If work notes container already exists, just show it
+    if (workNotesContainer) {
+        workNotesContainer.style.display = 'block';
+        return;
+    }
 
+    // Create a container for the table
+    workNotesContainer = document.createElement('div');
+    workNotesContainer.id = 'workNotesTable';
+    workNotesContainer.style.overflowX = 'auto';
+    document.body.appendChild(workNotesContainer);
 
+    // Create the table element
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    
+    // Keep track of sort state
+    const sortState = {
+        column: null,
+        ascending: true
+    };
+
+    // Create the header row
+    const headerRow = document.createElement('tr');
+    workNoteHeaders.forEach(header => {
+        const th = document.createElement('th');
+        th.innerText = header;
+        th.style.border = '1px solid black';
+        th.style.padding = '8px';
+        th.style.backgroundColor = '#f2f2f2';
+        th.style.cursor = 'pointer';
+        
+        // Set specific widths for columns
+        if (header === 'Channel') {
+            th.style.width = '60px';  // Adjust this value as needed
+        } else if (header === 'Notes') {
+            th.style.width = '200px'; // Optional: make Notes column wider
+        }
+        
+        // Add click event for sorting
+        th.addEventListener('click', () => {
+            sortTable(header, table);
+        });
+        
+        headerRow.appendChild(th);
+    });
+    table.appendChild(headerRow);
+
+    // Add a single row with an input field for the channel
+    addInputRow(table);
+
+    // Append table to container
+    workNotesContainer.appendChild(table);
+
+    function sortTable(header, table) {
+        // Get all rows except header and input row
+        const rows = Array.from(table.rows).slice(1, -1);
+        const inputRow = table.rows[table.rows.length - 1];
+        
+        // Determine column index
+        const columnIndex = workNoteHeaders.indexOf(header);
+        
+        // Update sort state
+        if (sortState.column === header) {
+            sortState.ascending = !sortState.ascending;
+        } else {
+            sortState.column = header;
+            sortState.ascending = true;
+        }
+
+        // Sort rows
+        rows.sort((a, b) => {
+            let aValue = a.cells[columnIndex].textContent;
+            let bValue = b.cells[columnIndex].textContent;
+
+            // Handle numeric sorting for Channel, Unit, Dimmer, and Address
+            if (['Channel', 'Unit', 'Dimmer', 'Address'].includes(header)) {
+                aValue = parseInt(aValue) || 0;
+                bValue = parseInt(bValue) || 0;
+                return sortState.ascending ? aValue - bValue : bValue - aValue;
+            }
+
+            // String comparison for other columns
+            return sortState.ascending ? 
+                aValue.localeCompare(bValue) : 
+                bValue.localeCompare(aValue);
+        });
+
+        // Remove existing rows except header and input
+        while (table.rows.length > 2) {
+            table.deleteRow(1);
+        }
+
+        // Add sorted rows back
+        rows.forEach(row => {
+            table.insertBefore(row, inputRow);
+        });
+    }
+
+    function addInputRow(table) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = workNoteHeaders.length;
+        cell.style.padding = '10px';
+        cell.style.display = 'flex';
+        cell.style.gap = '10px';
+
+        // Create select for input type
+        const select = document.createElement('select');
+        select.style.width = '100px';
+        const options = ['Channel', 'Address', 'Dimmer', 'Color'];
+        options.forEach(opt => {
+            const option = document.createElement('option');
+            option.value = opt.toLowerCase();
+            option.text = opt;
+            select.appendChild(option);
+        });
+
+        // Create input for entering the value
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Enter Value';
+        input.style.flex = '1';
+
+        // Create input for notes
+        const notesInput = document.createElement('input');
+        notesInput.type = 'text';
+        notesInput.placeholder = 'Add Notes';
+        notesInput.style.flex = '1';
+        
+        // Function to handle the enter key submission
+        const handleSubmit = () => {
+            const searchType = select.value;
+            if (input.value.trim() !== '') {
+                handleInput(input.value, searchType, notesInput.value);
+                table.removeChild(row);
+                addInputRow(table);
+                table.lastElementChild.querySelector('input').focus();
+            }
+        };
+
+        // Add keypress listeners for both input fields
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (notesInput.value.trim() === '') {
+                    notesInput.focus();
+                } else {
+                    handleSubmit();
+                }
+            }
+        });
+
+        notesInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+            }
+        });
+        
+        cell.appendChild(select);
+        cell.appendChild(input);
+        cell.appendChild(notesInput);
+        row.appendChild(cell);
+        table.appendChild(row);
+        input.focus();
+    }
+
+    function handleInput(inputValue, searchType, notes) {
+        let matchingData = [];
+
+        switch(searchType) {
+            case 'channel':
+                matchingData = originalData.filter(item => item.channel === inputValue);
+                break;
+            case 'address':
+                matchingData = originalData.filter(item => item.address === inputValue);
+                break;
+            case 'dimmer':
+                matchingData = originalData.filter(item => item.dimmer === inputValue);
+                break;
+            case 'color':
+                matchingData = originalData.filter(item => 
+                    item.color && item.color.toLowerCase().includes(inputValue.toLowerCase())
+                );
+                break;
+        }
+
+        if (matchingData.length > 0) {
+            matchingData.forEach(rowData => {
+                const row = document.createElement('tr');
+                
+                // Add all data cells first
+                workNoteHeaders.forEach(header => {
+                    const cell = document.createElement('td');
+                    cell.style.border = '1px solid black';
+                    cell.style.padding = '8px';
+                    
+                    if (header === 'Delete') {
+                        // Create delete button
+                        const deleteButton = document.createElement('button');
+                        deleteButton.innerHTML = '×';
+                        deleteButton.style.cursor = 'pointer';
+                        deleteButton.style.border = 'none';
+                        deleteButton.style.background = 'none';
+                        deleteButton.style.color = 'red';
+                        deleteButton.style.fontSize = '20px';
+                        deleteButton.style.padding = '0';
+                        deleteButton.title = 'Delete Row';
+                        
+                        deleteButton.onclick = function() {
+                            row.remove();
+                        };
+                        
+                        cell.style.width = '30px';
+                        cell.style.textAlign = 'center';
+                        cell.appendChild(deleteButton);
+                    } else if (header === 'Notes') {
+                        cell.innerText = notes || '';
+                    } else if (header === 'Accessories' && Array.isArray(rowData.accessories)) {
+                        cell.innerText = rowData.accessories.map(acc => acc.type).join(', ') || '';
+                    } else {
+                        cell.innerText = rowData[header.toLowerCase()] || '';
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                table.insertBefore(row, table.lastElementChild);
+            });
+        } else {
+            alert(`No fixture found with ${searchType} ${inputValue}`);
+        }
+    }
+
+    // Add saveState() calls after table modifications
+    const originalHandleInput = handleInput;
+    handleInput = function(...args) {
+        originalHandleInput.apply(this, args);
+        saveState();
+    };
+}
+
+function showMainView() {
+    // Show the original table
+    document.getElementById('dataTable').style.display = 'block';
+    
+    // Hide the work notes table if it exists (but don't remove it)
+    if (workNotesContainer) {
+        workNotesContainer.style.display = 'none';
+    }
+}
+
+function exportWorkNotes() {
+    if (!workNotesContainer || !workNotesContainer.querySelector('table')) {
+        alert('No work notes available to export.');
+        return;
+    }
+
+    // Create a clone of the work notes table
+    const tableClone = workNotesContainer.querySelector('table').cloneNode(true);
+    
+    // Remove the last row (input row) from the clone
+    tableClone.deleteRow(-1);
+
+    // Create a container for the PDF content
+    const pdfContent = document.createElement('div');
+    pdfContent.style.padding = '20px';
+
+    // Add header
+    const header = document.createElement('div');
+    header.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+            <h1 style="margin: 0;">Work Notes - ${showName || 'Unnamed Show'}</h1>
+            <div style="text-align: right; font-size: 12px;">
+                <p>Designer: ${designer || 'Unknown'}</p>
+                <p>Head Electrician: ${headElectrician || 'Unknown'}</p>
+                <p>Date: ${new Date().toLocaleDateString()}</p>
+            </div>
+        </div>
+    `;
+    pdfContent.appendChild(header);
+
+    // Style the table for PDF
+    tableClone.style.width = '100%';
+    tableClone.style.marginTop = '20px';
+    tableClone.style.fontSize = '12px';
+    
+    // Remove the delete column
+    const deleteColumnIndex = workNoteHeaders.indexOf('Delete');
+    if (deleteColumnIndex !== -1) {
+        Array.from(tableClone.rows).forEach(row => {
+            row.deleteCell(deleteColumnIndex);
+        });
+    }
+
+    pdfContent.appendChild(tableClone);
+
+    // Add footer
+    const footer = document.createElement('div');
+    footer.innerHTML = `
+        <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+            <p>Generated using Light Rewrite Web ${version}</p>
+        </div>
+    `;
+    pdfContent.appendChild(footer);
+
+    // Configure PDF options
+    const pdfOptions = {
+        margin: 0.5,
+        filename: `${uploadedFileName}_work_notes.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    // Generate and download the PDF
+    html2pdf().from(pdfContent).set(pdfOptions).save();
+}
+
+function clearStoredData() {
+    if (confirm('Are you sure you want to clear all stored data? This cannot be undone.')) {
+        // Clear localStorage
+        localStorage.removeItem('lightRewriteState');
+        
+        // Reset all global variables
+        originalData = [];
+        tableInitialized = false;
+        instrumentData = [];
+        uploadedFileName = '';
+        showName = '';
+        designer = '';
+        headElectrician = '';
+        
+        // Clear work notes if they exist
+        if (workNotesContainer) {
+            workNotesContainer.remove();
+            workNotesContainer = null;
+        }
+
+        // Reset table display
+        document.getElementById('dataTable').style.display = 'none';
+        document.getElementById('instructionBox').style.display = 'block';
+        document.getElementById('instructionBox2').style.display = 'block';
+        document.getElementById('instructionBox3').style.display = 'block';
+        document.getElementById('instructionBox4').style.display = 'block';
+        document.getElementById('searchInfo').style.display = 'none';
+        
+        // Clear the table body
+        document.getElementById('tableBody').innerHTML = '';
+        
+        // Destroy and reset DataTable if it exists
+        if ($.fn.DataTable.isDataTable('#dataTable')) {
+            $('#dataTable').DataTable().destroy();
+        }
+        
+        // Reload the page to ensure a clean state
+        location.reload();
+    }
+}
+
+function processCSVFile() {
+    const fileInput = document.getElementById('csvFileInput');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Please select a CSV file.');
+        return;
+    }
+
+    // Store the uploaded file name (without the extension) for later use
+    uploadedFileName = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            // Split the CSV content into lines
+            const lines = event.target.result.split('\n');
+            
+            // Get headers from first line and clean them
+            const headers = lines[0].split(',').map(header => 
+                header.trim().replace(/^["']|["']$/g, '').toLowerCase()
+            );
+
+            // Validate required headers
+            const requiredHeaders = ['channel', 'position', 'unit', 'purpose', 'type', 'dimmer', 'address', 'color', 'gobo', 'accessories'];
+            const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+            
+            if (missingHeaders.length > 0) {
+                alert(`Missing required headers: ${missingHeaders.join(', ')}`);
+                return;
+            }
+
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            originalData = []; // Clear original data array
+
+            // Process each line (skip header)
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue; // Skip empty lines
+
+                // Split the line into values and clean them
+                const values = lines[i].split(',').map(value => 
+                    value.trim().replace(/^["']|["']$/g, '')
+                );
+
+                // Create data object using headers as keys
+                const rowData = {};
+                headers.forEach((header, index) => {
+                    rowData[header] = values[index] || '';
+                });
+
+                // Parse accessories (assuming they're semicolon-separated in the CSV)
+                const accessories = rowData.accessories ? rowData.accessories.split(';').map(acc => ({
+                    type: acc.trim()
+                })) : [];
+
+                const accessoryText = accessories.map(a => a.type).join(', ');
+
+                // Create table row
+                const row = `<tr> 
+                    <td>${rowData.channel}</td>
+                    <td>${rowData.position}</td>
+                    <td>${rowData.unit}</td>
+                    <td>${rowData.purpose}</td>
+                    <td>${rowData.type}</td>
+                    <td>${rowData.dimmer}</td>
+                    <td>${rowData.address}</td>
+                    <td>${rowData.color}</td>
+                    <td>${rowData.gobo}</td>
+                    <td>${accessoryText}</td>
+                </tr>`;
+                tableBody.innerHTML += row;
+
+                // Add to originalData
+                originalData.push({
+                    channel: rowData.channel,
+                    position: rowData.position,
+                    unit: rowData.unit,
+                    purpose: rowData.purpose,
+                    type: rowData.type,
+                    dimmer: rowData.dimmer,
+                    address: rowData.address,
+                    color: rowData.color,
+                    gobo: rowData.gobo,
+                    accessories
+                });
+            }
+
+            // Update UI
+            document.getElementById('dataTable').style.display = 'block';
+            document.getElementById('instructionBox').style.display = 'none';
+            document.getElementById('instructionBox2').style.display = 'none';
+            document.getElementById('instructionBox3').style.display = 'none';
+            document.getElementById('instructionBox4').style.display = 'none';
+            document.getElementById('searchInfo').style.display = 'none';
+
+            // Initialize or update DataTable
+            if (!tableInitialized) {
+                $('#dataTable').DataTable({
+                    searching: false,
+                    paging: false,
+                    info: false,
+                    order: [],
+                    columnDefs: [{
+                        targets: 1,
+                        orderData: [1, 2],
+                    }]
+                });
+                tableInitialized = true;
+            } else {
+                $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+            }
+
+            saveState();
+
+        } catch (error) {
+            console.error("Error parsing CSV file:", error);
+            alert("An error occurred while processing the CSV file. Please check the console for details.");
+        }
+    };
+
+    reader.readAsText(file);
+}
+
+// Add event listener for page load
+window.addEventListener('load', () => {
+    loadState();
+});
+
+// Add event listener for before page unload
+window.addEventListener('beforeunload', () => {
+    saveState();
+});
 
 </script>
 
