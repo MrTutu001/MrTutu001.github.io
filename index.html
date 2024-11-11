@@ -127,7 +127,7 @@
                 <a href="#" onclick="populateAddressFromDimmer()">Dimmer to Address</a>
             </div>
             <div class="tools">
-                <a href="#" onclick="compareCSVWithOriginal()">Compare CSV</a>
+                <a href="#" onclick="compareCSVWithOriginal()">Compare</a>
             </div>
         </div>
     </div>
@@ -1841,95 +1841,153 @@ window.addEventListener('beforeunload', () => {
 function compareCSVWithOriginal() {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = '.csv';
+    fileInput.accept = '.csv, .xlsx';
     
     fileInput.onchange = function(e) {
         const file = e.target.files[0];
         if (!file) {
-            alert('Please select a CSV file.');
+            alert('Please select a CSV or Excel file.');
             return;
         }
 
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            try {
-                // Parse the CSV data
-                const lines = event.target.result.split('\n');
-                const headers = lines[0].split(',').map(header => 
-                    header.trim().replace(/^["']|["']$/g, '').toLowerCase()
-                );
-
-                // Validate headers
-                const requiredHeaders = ['channel', 'position', 'unit', 'purpose', 'type', 'dimmer', 'address', 'color', 'gobo', 'accessories'];
-                const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-                
-                if (missingHeaders.length > 0) {
-                    alert(`Missing required headers: ${missingHeaders.join(', ')}`);
-                    return;
-                }
-
-                // Parse CSV into comparable format
-                const comparisonData = [];
-                for (let i = 1; i < lines.length; i++) {
-                    if (!lines[i].trim()) continue;
-                    
-                    const values = lines[i].split(',').map(value => 
-                        value.trim().replace(/^["']|["']$/g, '')
-                    );
-
-                    const rowData = {};
-                    headers.forEach((header, index) => {
-                        rowData[header] = values[index] || '';
-                    });
-
-                    comparisonData.push(rowData);
-                }
-
-                // Find differences
-                const differences = {
-                    original: [],
-                    comparison: []
-                };
-
-                // Check original data against comparison data
-                originalData.forEach(originalRow => {
-                    const matchingRow = comparisonData.find(compRow => 
-                        compRow.channel === originalRow.channel &&
-                        compRow.position === originalRow.position &&
-                        compRow.unit === originalRow.unit
-                    );
-
-                    if (!matchingRow || hasDifferences(originalRow, matchingRow)) {
-                        differences.original.push(originalRow);
-                    }
-                });
-
-                // Check comparison data against original data
-                comparisonData.forEach(compRow => {
-                    const matchingRow = originalData.find(origRow => 
-                        origRow.channel === compRow.channel &&
-                        origRow.position === compRow.position &&
-                        origRow.unit === origRow.unit
-                    );
-
-                    if (!matchingRow || hasDifferences(compRow, matchingRow)) {
-                        differences.comparison.push(compRow);
-                    }
-                });
-
-                // Display differences in a new window
-                displayDifferences(differences);
-
-            } catch (error) {
-                console.error("Error comparing files:", error);
-                alert("An error occurred while comparing the files. Please check the console for details.");
-            }
-        };
-
-        reader.readAsText(file);
+        if (file.name.endsWith('.csv')) {
+            processCSVComparison(file);
+        } else if (file.name.endsWith('.xlsx')) {
+            processExcelComparison(file);
+        } else {
+            alert('Unsupported file type. Please select a CSV or Excel file.');
+        }
     };
 
     fileInput.click();
+}
+
+function processCSVComparison(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const comparisonData = parseCSV(event.target.result);
+            compareDifferences(comparisonData);
+        } catch (error) {
+            console.error("Error comparing CSV file:", error);
+            alert("An error occurred while comparing the CSV file. Please check the console for details.");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function processExcelComparison(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const comparisonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+            compareDifferences(parseExcel(comparisonData));
+        } catch (error) {
+            console.error("Error comparing Excel file:", error);
+            alert("An error occurred while comparing the Excel file. Please check the console for details.");
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseCSV(csvContent) {
+    const lines = csvContent.split('\n');
+    const headers = lines[0].split(',').map(header => 
+        header.trim().replace(/^["']|["']$/g, '').toLowerCase()
+    );
+    
+    // Convert CSV lines to arrays of values, handling quoted values correctly
+    const rows = lines.slice(1).map(line => {
+        const values = [];
+        let inQuotes = false;
+        let currentValue = '';
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(currentValue.trim());
+                currentValue = '';
+            } else {
+                currentValue += char;
+            }
+        }
+        values.push(currentValue.trim()); // Push the last value
+        
+        return values;
+    });
+
+    return parseFileContent(rows, headers);
+}
+
+function parseExcel(excelData) {
+    const headers = excelData[0].map(header => header.toLowerCase());
+    return parseFileContent(excelData.slice(1), headers);
+}
+
+function parseFileContent(dataRows, headers) {
+    const requiredHeaders = ['channel', 'position', 'unit', 'purpose', 'type', 'dimmer', 'address', 'color', 'gobo', 'accessories'];
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    
+    if (missingHeaders.length > 0) {
+        throw new Error(`Missing required headers: ${missingHeaders.join(', ')}`);
+    }
+
+    // Filter out empty rows and convert all values to strings
+    return dataRows
+        .filter(row => Array.isArray(row) && row.some(cell => {
+            // Convert to string if possible, otherwise use empty string
+            const cellValue = (cell != null) ? String(cell) : '';
+            return cellValue.trim() !== '';
+        }))
+        .map(row => {
+            const rowData = {};
+            headers.forEach((header, index) => {
+                // Convert cell value to string, handling null/undefined
+                const cellValue = (row[index] != null) ? String(row[index]) : '';
+                rowData[header] = cellValue.trim();
+            });
+            return rowData;
+        });
+}
+
+function compareDifferences(comparisonData) {
+    const differences = {
+        original: [],
+        comparison: []
+    };
+
+    originalData.forEach(originalRow => {
+        const matchingRow = comparisonData.find(compRow => 
+            compRow.channel === originalRow.channel &&
+            compRow.position === originalRow.position &&
+            compRow.unit === originalRow.unit
+        );
+
+        if (!matchingRow || hasDifferences(originalRow, matchingRow)) {
+            differences.original.push(originalRow);
+        }
+    });
+
+    comparisonData.forEach(compRow => {
+        const matchingRow = originalData.find(origRow => 
+            origRow.channel === compRow.channel &&
+            origRow.position === compRow.position &&
+            origRow.unit === compRow.unit
+        );
+
+        if (!matchingRow || hasDifferences(compRow, matchingRow)) {
+            differences.comparison.push(compRow);
+        }
+    });
+
+    displayDifferences(differences);
 }
 
 function hasDifferences(row1, row2) {
