@@ -10,6 +10,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
         body { 
@@ -96,6 +97,10 @@
                         <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="processCSVFile()">
                         <a href="#" onclick="document.getElementById('csvFileInput').click(); return false;">CSV</a>
                     </label>
+                    <label for="xlsxFileInput" class="file-upload">
+                        <input type="file" id="xlsxFileInput" accept=".xlsx" style="display: none;" onchange="processXLSXFile()">
+                        <a href="#" onclick="document.getElementById('xlsxFileInput').click(); return false;">Excel</a>
+                    </label>
                 </div>
                 <script>
                     document.querySelector('.upload-trigger').addEventListener('mouseover', function(e) {
@@ -120,6 +125,9 @@
         <div class="dropdown-content">
             <div class="tools">
                 <a href="#" onclick="populateAddressFromDimmer()">Dimmer to Address</a>
+            </div>
+            <div class="tools">
+                <a href="#" onclick="compareCSVWithOriginal()">Compare CSV</a>
             </div>
         </div>
     </div>
@@ -1689,6 +1697,137 @@ function processCSVFile() {
     reader.readAsText(file);
 }
 
+function processXLSXFile() {
+    const fileInput = document.getElementById('xlsxFileInput');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Please select an Excel file.');
+        return;
+    }
+
+    // Store the uploaded file name (without the extension) for later use
+    uploadedFileName = file.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            // Read the Excel file
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Get the first worksheet
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            
+            // Convert worksheet to JSON
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (jsonData.length === 0) {
+                alert('No data found in the Excel file.');
+                return;
+            }
+
+            // Get headers from first row and clean them
+            const headers = jsonData[0].map(header => 
+                String(header).trim().toLowerCase()
+            );
+
+            // Validate required headers
+            const requiredHeaders = ['channel', 'position', 'unit', 'purpose', 'type', 'dimmer', 'address', 'color', 'gobo', 'accessories'];
+            const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+            
+            if (missingHeaders.length > 0) {
+                alert(`Missing required headers: ${missingHeaders.join(', ')}`);
+                return;
+            }
+
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+            originalData = []; // Clear original data array
+
+            // Process each row (skip header)
+            for (let i = 1; i < jsonData.length; i++) {
+                const values = jsonData[i];
+                if (!values || values.length === 0) continue; // Skip empty rows
+
+                // Create data object using headers as keys
+                const rowData = {};
+                headers.forEach((header, index) => {
+                    rowData[header] = values[index] ? String(values[index]).trim() : '';
+                });
+
+                // Parse accessories (assuming they're semicolon-separated)
+                const accessories = rowData.accessories ? String(rowData.accessories).split(';').map(acc => ({
+                    type: acc.trim()
+                })) : [];
+
+                const accessoryText = accessories.map(a => a.type).join(', ');
+
+                // Create table row
+                const row = `<tr> 
+                    <td>${rowData.channel}</td>
+                    <td>${rowData.position}</td>
+                    <td>${rowData.unit}</td>
+                    <td>${rowData.purpose}</td>
+                    <td>${rowData.type}</td>
+                    <td>${rowData.dimmer}</td>
+                    <td>${rowData.address}</td>
+                    <td>${rowData.color}</td>
+                    <td>${rowData.gobo}</td>
+                    <td>${accessoryText}</td>
+                </tr>`;
+                tableBody.innerHTML += row;
+
+                // Add to originalData
+                originalData.push({
+                    channel: rowData.channel,
+                    position: rowData.position,
+                    unit: rowData.unit,
+                    purpose: rowData.purpose,
+                    type: rowData.type,
+                    dimmer: rowData.dimmer,
+                    address: rowData.address,
+                    color: rowData.color,
+                    gobo: rowData.gobo,
+                    accessories
+                });
+            }
+
+            // Update UI
+            document.getElementById('dataTable').style.display = 'block';
+            document.getElementById('instructionBox').style.display = 'none';
+            document.getElementById('instructionBox2').style.display = 'none';
+            document.getElementById('instructionBox3').style.display = 'none';
+            document.getElementById('instructionBox4').style.display = 'none';
+            document.getElementById('searchInfo').style.display = 'none';
+
+            // Initialize or update DataTable
+            if (!tableInitialized) {
+                $('#dataTable').DataTable({
+                    searching: false,
+                    paging: false,
+                    info: false,
+                    order: [],
+                    columnDefs: [{
+                        targets: 1,
+                        orderData: [1, 2],
+                    }]
+                });
+                tableInitialized = true;
+            } else {
+                $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+            }
+
+            saveState();
+
+        } catch (error) {
+            console.error("Error parsing Excel file:", error);
+            alert("An error occurred while processing the Excel file. Please check the console for details.");
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
 // Add event listener for page load
 window.addEventListener('load', () => {
     loadState();
@@ -1698,6 +1837,416 @@ window.addEventListener('load', () => {
 window.addEventListener('beforeunload', () => {
     saveState();
 });
+
+function compareCSVWithOriginal() {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.csv';
+    
+    fileInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            alert('Please select a CSV file.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                // Parse the CSV data
+                const lines = event.target.result.split('\n');
+                const headers = lines[0].split(',').map(header => 
+                    header.trim().replace(/^["']|["']$/g, '').toLowerCase()
+                );
+
+                // Validate headers
+                const requiredHeaders = ['channel', 'position', 'unit', 'purpose', 'type', 'dimmer', 'address', 'color', 'gobo', 'accessories'];
+                const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+                
+                if (missingHeaders.length > 0) {
+                    alert(`Missing required headers: ${missingHeaders.join(', ')}`);
+                    return;
+                }
+
+                // Parse CSV into comparable format
+                const comparisonData = [];
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    
+                    const values = lines[i].split(',').map(value => 
+                        value.trim().replace(/^["']|["']$/g, '')
+                    );
+
+                    const rowData = {};
+                    headers.forEach((header, index) => {
+                        rowData[header] = values[index] || '';
+                    });
+
+                    comparisonData.push(rowData);
+                }
+
+                // Find differences
+                const differences = {
+                    original: [],
+                    comparison: []
+                };
+
+                // Check original data against comparison data
+                originalData.forEach(originalRow => {
+                    const matchingRow = comparisonData.find(compRow => 
+                        compRow.channel === originalRow.channel &&
+                        compRow.position === originalRow.position &&
+                        compRow.unit === originalRow.unit
+                    );
+
+                    if (!matchingRow || hasDifferences(originalRow, matchingRow)) {
+                        differences.original.push(originalRow);
+                    }
+                });
+
+                // Check comparison data against original data
+                comparisonData.forEach(compRow => {
+                    const matchingRow = originalData.find(origRow => 
+                        origRow.channel === compRow.channel &&
+                        origRow.position === compRow.position &&
+                        origRow.unit === origRow.unit
+                    );
+
+                    if (!matchingRow || hasDifferences(compRow, matchingRow)) {
+                        differences.comparison.push(compRow);
+                    }
+                });
+
+                // Display differences in a new window
+                displayDifferences(differences);
+
+            } catch (error) {
+                console.error("Error comparing files:", error);
+                alert("An error occurred while comparing the files. Please check the console for details.");
+            }
+        };
+
+        reader.readAsText(file);
+    };
+
+    fileInput.click();
+}
+
+function hasDifferences(row1, row2) {
+    const compareFields = ['purpose', 'type', 'dimmer', 'address', 'color', 'gobo', 'accessories'];
+    return compareFields.some(field => {
+        if (field === 'accessories') {
+            const acc1 = Array.isArray(row1.accessories) ? 
+                row1.accessories.map(a => a.type).join(';') : row1.accessories;
+            const acc2 = Array.isArray(row2.accessories) ? 
+                row2.accessories.map(a => a.type).join(';') : row2.accessories;
+            return acc1 !== acc2;
+        }
+        return row1[field] !== row2[field];
+    });
+}
+
+function displayDifferences(differences) {
+    // Create a modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        overflow-y: auto;
+        z-index: 1000;
+    `;
+
+    // Create the content container
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: white;
+        padding: 20px;
+        margin: 20px;
+        border-radius: 8px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+
+    // Add close and save buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        position: sticky;
+        top: 0;
+        right: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        background: white;
+        padding: 5px;
+        z-index: 2;
+    `;
+
+    const saveButton = document.createElement('button');
+    saveButton.innerHTML = 'Update';
+    saveButton.style.cssText = `
+        padding: 5px 10px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    `;
+
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+    `;
+
+    buttonContainer.appendChild(saveButton);
+    buttonContainer.appendChild(closeButton);
+
+    // Create arrays to store selected rows
+    const selectedRows = new Map();
+
+    // Create the content HTML
+    content.innerHTML = `
+        <style>
+            .diff-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 20px; 
+            }
+            .diff-table th, .diff-table td { 
+                border: 1px solid #ddd; 
+                padding: 8px; 
+                text-align: left; 
+            }
+            .diff-table th { 
+                background-color: #f2f2f2; 
+                position: sticky;
+                top: 40px;
+                z-index: 1;
+            }
+            .diff-section { 
+                margin-bottom: 30px; 
+            }
+            h1, h2 { 
+                color: #333; 
+            }
+            .original { 
+                background-color: #ffe6e6; 
+            }
+            .comparison { 
+                background-color: #e6ffe6; 
+            }
+            .selected {
+                outline: 2px solid #4CAF50;
+            }
+            .row-select {
+                cursor: pointer;
+            }
+            .row-select:hover {
+                background-color: #f5f5f5;
+            }
+        </style>
+        <h1>Data Comparison Results</h1>
+        <p>Click on a row to select which version you want to keep. Selected rows will have a green outline.</p>
+        
+        <div class="diff-section">
+            <h2>Original Data Differences (${differences.original.length} items)</h2>
+            <table class="diff-table original">
+                <tr>
+                    <th>Channel</th>
+                    <th>Position</th>
+                    <th>Unit</th>
+                    <th>Purpose</th>
+                    <th>Type</th>
+                    <th>Dimmer</th>
+                    <th>Address</th>
+                    <th>Color</th>
+                    <th>Gobo</th>
+                    <th>Accessories</th>
+                </tr>
+                ${differences.original.map((row, index) => `
+                    <tr class="row-select" data-type="original" data-index="${index}">
+                        <td>${row.channel || ''}</td>
+                        <td>${row.position || ''}</td>
+                        <td>${row.unit || ''}</td>
+                        <td>${row.purpose || ''}</td>
+                        <td>${row.type || ''}</td>
+                        <td>${row.dimmer || ''}</td>
+                        <td>${row.address || ''}</td>
+                        <td>${row.color || ''}</td>
+                        <td>${row.gobo || ''}</td>
+                        <td>${Array.isArray(row.accessories) ? 
+                            row.accessories.map(a => a.type).join(', ') : 
+                            row.accessories || ''}</td>
+                    </tr>
+                `).join('')}
+            </table>
+        </div>
+
+        <div class="diff-section">
+            <h2>Comparison Data Differences (${differences.comparison.length} items)</h2>
+            <table class="diff-table comparison">
+                <tr>
+                    <th>Channel</th>
+                    <th>Position</th>
+                    <th>Unit</th>
+                    <th>Purpose</th>
+                    <th>Type</th>
+                    <th>Dimmer</th>
+                    <th>Address</th>
+                    <th>Color</th>
+                    <th>Gobo</th>
+                    <th>Accessories</th>
+                </tr>
+                ${differences.comparison.map((row, index) => `
+                    <tr class="row-select" data-type="comparison" data-index="${index}">
+                        <td>${row.channel || ''}</td>
+                        <td>${row.position || ''}</td>
+                        <td>${row.unit || ''}</td>
+                        <td>${row.purpose || ''}</td>
+                        <td>${row.type || ''}</td>
+                        <td>${row.dimmer || ''}</td>
+                        <td>${row.address || ''}</td>
+                        <td>${row.color || ''}</td>
+                        <td>${row.gobo || ''}</td>
+                        <td>${row.accessories || ''}</td>
+                    </tr>
+                `).join('')}
+            </table>
+        </div>
+    `;
+
+    // Add event listeners for row selection
+    content.addEventListener('click', (e) => {
+        const row = e.target.closest('.row-select');
+        if (row) {
+            const type = row.dataset.type;
+            const index = parseInt(row.dataset.index);
+            const key = `${type}-${index}`;
+            
+            // Toggle selection
+            if (selectedRows.has(key)) {
+                selectedRows.delete(key);
+                row.classList.remove('selected');
+            } else {
+                // Find matching row in other table and deselect it
+                const matchingData = type === 'original' ? 
+                    differences.comparison[index] : differences.original[index];
+                if (matchingData) {
+                    const matchingKey = `${type === 'original' ? 'comparison' : 'original'}-${index}`;
+                    selectedRows.delete(matchingKey);
+                    const matchingRow = content.querySelector(`[data-type="${type === 'original' ? 'comparison' : 'original'}"][data-index="${index}"]`);
+                    if (matchingRow) matchingRow.classList.remove('selected');
+                }
+                selectedRows.set(key, { type, index });
+                row.classList.add('selected');
+            }
+        }
+    });
+
+    // Add save functionality
+    saveButton.onclick = () => {
+        // Update original data based on selections
+        selectedRows.forEach(({ type, index }) => {
+            const selectedData = type === 'original' ? 
+                differences.original[index] : 
+                differences.comparison[index];
+
+            // Find the index in originalData to update
+            const originalIndex = originalData.findIndex(item => 
+                item.channel === selectedData.channel &&
+                item.position === selectedData.position &&
+                item.unit === selectedData.unit
+            );
+
+            if (originalIndex !== -1) {
+                // Update existing row
+                originalData[originalIndex] = { ...selectedData };
+            } else {
+                // Add new row
+                originalData.push({ ...selectedData });
+            }
+        });
+
+        // Close modal
+        document.body.removeChild(modal);
+        
+        // Update the original table
+        updateOriginalTable();
+    };
+
+    // Add close functionality
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    // Add close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Add buttons and content to modal
+    content.insertBefore(buttonContainer, content.firstChild);
+    modal.appendChild(content);
+
+    // Add modal to page
+    document.body.appendChild(modal);
+}
+
+function updateOriginalTable() {
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    // Populate the table with updated data
+    originalData.forEach(row => {
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>${row.channel || ''}</td>
+            <td>${row.position || ''}</td>
+            <td>${row.unit || ''}</td>
+            <td>${row.purpose || ''}</td>
+            <td>${row.type || ''}</td>
+            <td>${row.dimmer || ''}</td>
+            <td>${row.address || ''}</td>
+            <td>${row.color || ''}</td>
+            <td>${row.gobo || ''}</td>
+            <td>${Array.isArray(row.accessories) ? 
+                row.accessories.map(a => a.type).join(', ') : 
+                row.accessories || ''}</td>
+        `;
+        tableBody.appendChild(newRow);
+    });
+
+    // Refresh DataTable
+    if ($.fn.DataTable.isDataTable('#dataTable')) {
+        $('#dataTable').DataTable().destroy();
+    }
+    $('#dataTable').DataTable({
+        searching: false,
+        paging: false,
+        info: false,
+        order: [],
+        columnDefs: [{
+            targets: 1,
+            orderData: [1, 2],
+        }]
+    });
+
+    // Save state
+    saveState();
+}
 
 </script>
 
