@@ -1206,7 +1206,7 @@ function exportTableToCSV() {
     document.body.removeChild(link);
 }
 
-
+///Work Notes
 // Function to create the table and handle auto-fill functionality
 function createSpreadsheet() {
     // Hide the original DataTable
@@ -1425,6 +1425,7 @@ function createSpreadsheet() {
                         
                         deleteButton.onclick = function() {
                             row.remove();
+                            saveState();
                         };
                         
                         cell.style.width = '30px';
@@ -1440,6 +1441,18 @@ function createSpreadsheet() {
                     
                     row.appendChild(cell);
                 });
+                
+                // Add delete row button
+                const deleteRowCell = document.createElement('td');
+                const deleteRowButton = document.createElement('button');
+                deleteRowButton.innerHTML = 'Delete Row';
+                deleteRowButton.style.cursor = 'pointer';
+                deleteRowButton.onclick = function() {
+                    row.remove();
+                    saveState();
+                };
+                deleteRowCell.appendChild(deleteRowButton);
+                row.appendChild(deleteRowCell);
                 
                 table.insertBefore(row, table.lastElementChild);
             });
