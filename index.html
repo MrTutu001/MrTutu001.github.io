@@ -1,10 +1,30 @@
+<!--Light Rewrite Web-->
+<!--This file is make to help lighting designers and head electrians mimicing some other popular lighting spreadsheet software.-->
+<!--This program is free and feel free to use it as you like.-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <!--Page Info-->
     <title>Light Rewrite</title>
-    <link rel="icon" href="lightRewriteIconBlack.ico" type="image/x-icon">
+    <link rel="icon" href="lightRewriteIconBlack.ico" type="image/x-icon" id="favicon">
+    <script>
+        // Function to update favicon based on color scheme
+        function updateFavicon() {
+            const favicon = document.getElementById('favicon');
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                favicon.href = 'lightRewriteIconWhite.ico';
+            } else {
+                favicon.href = 'lightRewriteIconBlack.ico';
+            }
+        }
+
+        // Update favicon initially
+        updateFavicon();
+
+        // Listen for theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateFavicon);
+    </script>
     <!-- Imports -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -13,7 +33,48 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
-        body { 
+        :root {
+            /* Light mode colors */
+            --background-color: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --header-bg: #f2f2f2;
+            --table-hover: #f5f5f5;
+            --modal-overlay: rgba(0, 0, 0, 0.5);
+            --warning-bg: #ffe6e6;
+            --modal-bg: #ffffff;
+            /* Add these to your existing light mode variables */
+            --menu-bg: #f0f0f0;
+            --menu-hover: #e0e0e0;
+            --dropdown-bg: #ffffff;
+            --dropdown-hover: #f1f1f1;
+            --menu-shadow: rgba(0, 0, 0, 0.2);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark mode colors */
+                --background-color: #1a1a1a;
+                --text-color: #ffffff;
+                --border-color: #444444;
+                --header-bg: #2d2d2d;
+                --table-hover: #2d2d2d;
+                --modal-overlay: rgba(0, 0, 0, 0.7);
+                --warning-bg: #662222;
+                --modal-bg: #2d2d2d;
+                /* Add these to your existing dark mode variables */
+                --menu-bg: #2d2d2d;
+                --menu-hover: #3d3d3d;
+                --dropdown-bg: #1a1a1a;
+                --dropdown-hover: #3d3d3d;
+                --menu-shadow: rgba(0, 0, 0, 0.4);
+            }
+        }
+
+        /* Apply variables to existing elements */
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
             font-family: Arial, sans-serif; 
             margin: 20px; 
         }
@@ -31,34 +92,51 @@
             transform: scaleX(-1); /* Mirroring the right image */
         }
         .menu-bar { 
-            background-color: #f0f0f0; 
+            background-color: var(--menu-bg); 
             padding: 10px; 
             display: flex; /* Use flex to align items */
             justify-content: flex-start; /* Align items to the left */
             width: 100%; /* Make menu bar full width */
-            box-shadow: 0px 2px 5px rgba(0,0,0,0.2); /* Add slight shadow for depth */
+            box-shadow: 0px 2px 5px var(--menu-shadow); /* Add slight shadow for depth */
             margin-bottom: 10px; /* Space below the menu */
+        }
+        .menu-bar button {
+            background-color: var(--menu-bg);
+            color: var(--text-color);
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+        .menu-bar button:hover {
+            background-color: var(--menu-hover);
         }
         .dropdown {
             position: relative; /* Position relative to the menu items */
             margin-right: 15px; /* Space between dropdowns */
         }
-        .dropdown-content {
-            display: none; 
-            position: absolute; 
-            background-color: white; 
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1;
-            white-space: nowrap; /* Prevent wrapping */
-        }
         .dropdown:hover .dropdown-content {
             display: block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: var(--dropdown-bg);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px var(--menu-shadow);
+            z-index: 1;
+        }
+        .dropdown-content a {
+            color: var(--text-color);
+            padding: 8px 12px;
+            display: block;
+            text-decoration: none;
+        }
+        .dropdown-content a:hover {
+            background-color: var(--dropdown-hover);
         }
         .file-upload, .search-option { margin: 0; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 8px 12px; border: 1px solid #ddd; }
-        .dropdown-content a { padding: 8px 12px; display: block; text-decoration: none; }
-        .dropdown-content a:hover { background-color: #f1f1f1; }
         .instruction { 
             text-align: center; 
             margin-bottom: 20px; 
@@ -72,23 +150,286 @@
             font-weight: bold; 
             color: #007BFF; 
         }
+        .diff-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+        }
+        .diff-table th, .diff-table td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        .diff-table th { 
+            background-color: #f2f2f2; 
+            position: sticky;
+            top: 40px;
+            z-index: 1;
+        }
+        .diff-section { 
+            margin-bottom: 30px; 
+        }
+        h1, h2 { 
+            color: #333; 
+        }
+        .original { 
+            background-color: #ffe6e6; 
+        }
+        .comparison { 
+            background-color: #e6ffe6; 
+        }
+        .selected {
+            outline: 2px solid #4CAF50;
+        }
+        .row-select {
+            cursor: pointer;
+        }
+        .row-select:hover {
+            background-color: #f5f5f5;
+        }
+        .address-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+        }
+        .address-table th, .address-table td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        .address-table th { 
+            background-color: #f2f2f2; 
+            position: sticky;
+            top: 40px;
+            z-index: 1;
+        }
+        .address-input {
+            width: 80px;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .channel-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+        }
+        .channel-table th, .channel-table td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        .channel-table th { 
+            background-color: #f2f2f2; 
+            position: sticky;
+            top: 40px;
+            z-index: 1;
+        }
+        .channel-input {
+            width: 80px;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .dimmer-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+        }
+        .dimmer-table th, .dimmer-table td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        .dimmer-table th { 
+            background-color: #f2f2f2; 
+            position: sticky;
+            top: 40px;
+            z-index: 1;
+        }
+        .warning {
+            background-color: #ffe6e6;
+        }
+        .modal-content {
+            background-color: var(--modal-bg);
+            color: var(--text-color);
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            max-width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        input, select {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+        .invalid-input {
+            background-color: var(--warning-bg);
+        }
+
+        /* DataTables specific styling */
+        table.dataTable {
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        table.dataTable thead th,
+        table.dataTable thead td {
+            background-color: var(--header-bg);
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+
+        table.dataTable tbody tr {
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        table.dataTable tbody tr:hover {
+            background-color: var(--table-hover);
+        }
+
+        table.dataTable.stripe tbody tr.odd,
+        table.dataTable.display tbody tr.odd {
+            background-color: var(--background-color);
+        }
+
+        table.dataTable.hover tbody tr:hover,
+        table.dataTable.display tbody tr:hover {
+            background-color: var(--table-hover);
+        }
+
+        table.dataTable tbody tr.selected {
+            background-color: var(--table-hover);
+        }
+
+        table.dataTable.row-border tbody th, 
+        table.dataTable.row-border tbody td, 
+        table.dataTable.display tbody th, 
+        table.dataTable.display tbody td {
+            border-color: var(--border-color);
+        }
+
+        /* Update the sorting icons background */
+        table.dataTable thead .sorting,
+        table.dataTable thead .sorting_asc,
+        table.dataTable thead .sorting_desc {
+            background-color: var(--header-bg);
+        }
+
+        /* Base dropdown styles */
+        .dropdown {
+            position: relative;
+            margin-right: 15px;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: var(--dropdown-bg);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px var(--menu-shadow);
+            z-index: 1;
+        }
+
+        /* Sub-dropdown containers */
+        .upload-trigger,
+        .check-trigger,
+        .export-trigger {
+            position: relative;
+        }
+
+        /* Sub-dropdown menus */
+        .upload-submenu,
+        .check-submenu,
+        .exports-submenu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background-color: var(--dropdown-bg);
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px var(--menu-shadow);
+            z-index: 2;
+        }
+
+        /* Show sub-dropdowns on hover */
+        .upload-trigger:hover + .upload-submenu,
+        .upload-submenu:hover,
+        .check-trigger:hover + .check-submenu,
+        .check-submenu:hover,
+        .export-trigger:hover + .exports-submenu,
+        .exports-submenu:hover {
+            display: block;
+        }
+
+        /* Links styling */
+        .dropdown-content a,
+        .upload-submenu a,
+        .check-submenu a,
+        .exports-submenu a {
+            color: var(--text-color);
+            padding: 8px 12px;
+            text-decoration: none;
+            display: block;
+            white-space: nowrap;
+        }
+
+        /* Hover effects */
+        .dropdown-content a:hover,
+        .upload-submenu a:hover,
+        .check-submenu a:hover,
+        .exports-submenu a:hover {
+            background-color: var(--dropdown-hover);
+        }
     </style>
 </head>
 <body>
 
     <h1> <!--Title-->
-        <img src="lightRewriteIconBlack.ico" alt="Left Icon" class="icon">
-        Light Rewrite Web
-        <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
+        <picture>
+            <source srcset="lightRewriteIconWhite.ico" media="(prefers-color-scheme: dark)">
+            <img src="lightRewriteIconBlack.ico" alt="Left Icon" class="icon">
+        </picture>
+        <span class="title-text">Light Rewrite Web</span>
+        <picture>
+            <source srcset="lightRewriteIconWhite.ico" media="(prefers-color-scheme: dark)">
+            <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
+        </picture>
     </h1>
+    <style>
+        @media (prefers-color-scheme: light) {
+            .title-text {
+                background: linear-gradient(45deg, #333333, #666666);
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+        }
+        @media (prefers-color-scheme: dark) {
+            .title-text {
+                background: linear-gradient(45deg, #ffffff, #cccccc);
+                -webkit-background-clip: text;
+                background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+        }
+    </style>
 
 <div class="menu-bar"> <!--Menu Bar-->
     <div class="dropdown">
-        <button>File</button>
+        <button style="border: 1px solid var(--border-color);">File</button>
         <div class="dropdown-content">
             <div class="file-upload">
                 <a href="#" class="upload-trigger">Upload -></a>
-                <div class="upload-submenu" style="position: absolute; left: 100%; top: 0; display: none; background-color: white; border: 1px solid #ddd; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);">
+                <div class="dropdown-content upload-submenu" style="left: 100%; top: 0; display: none;">
                     <label for="fileInput" class="file-upload">
                         <input type="file" id="fileInput" accept=".xml" style="display: none;" onchange="processFile()">
                         <a href="#" onclick="document.getElementById('fileInput').click(); return false;">XML</a>
@@ -102,15 +443,25 @@
                         <a href="#" onclick="document.getElementById('xlsxFileInput').click(); return false;">Excel</a>
                     </label>
                 </div>
-                <script>
-                    document.querySelector('.upload-trigger').addEventListener('mouseover', function(e) {
-                        document.querySelector('.upload-submenu').style.display = 'block';
-                    });
-                    document.querySelector('.file-upload').addEventListener('mouseleave', function(e) {
-                        document.querySelector('.upload-submenu').style.display = 'none';
-                    });
-                </script>
             </div>
+            <script>
+                const uploadTrigger = document.querySelector('.upload-trigger');
+                const uploadSubmenu = document.querySelector('.upload-submenu');
+
+                uploadTrigger.addEventListener('mouseover', function() {
+                    uploadSubmenu.style.display = 'block';
+                });
+
+                uploadTrigger.addEventListener('mouseleave', function(e) {
+                    if (!uploadSubmenu.contains(e.relatedTarget)) {
+                        uploadSubmenu.style.display = 'none';
+                    }
+                });
+
+                uploadSubmenu.addEventListener('mouseleave', function() {
+                    uploadSubmenu.style.display = 'none';
+                });
+            </script>
             <div class="showInfo">
                 <a href="#" onclick="getShowInfo()">Show Info</a>
             </div>
@@ -121,7 +472,7 @@
     </div>
 
     <div class="dropdown">
-        <button>Tools</button>
+        <button style="border: 1px solid var(--border-color);">Tools</button>
         <div class="dropdown-content">
             <div class="tools">
                 <a href="#" onclick="populateAddressFromDimmer()">Dimmer to Address</a>
@@ -129,17 +480,51 @@
             <div class="tools">
                 <a href="#" onclick="compareCSVWithOriginal()">Compare</a>
             </div>
+            <div class="tools">
+                <a href="#" class="check-trigger">Error Check -></a>
+                <div class="dropdown-content" style="left: 100%; top: 66%; display: none;">
+                    <div class="tools">
+                        <a href="#" onclick="checkAddresses()">Addresses</a>
+                    </div>
+                    <div class="tools">
+                        <a href="#" onclick="checkChannels()">Channels</a>
+                    </div>
+                    <div class="tools">
+                        <a href="#" onclick="checkDimmerWattage()">Dimmer Load</a>
+                    </div>
+                </div>
+                <script>
+                    const checkTrigger = document.querySelector('.check-trigger');
+                    const errorCheckDropdown = checkTrigger.nextElementSibling;
+
+                    checkTrigger.addEventListener('mouseover', function() {
+                        errorCheckDropdown.style.display = 'block';
+                    });
+
+                    checkTrigger.addEventListener('mouseleave', function() {
+                        errorCheckDropdown.style.display = 'none';
+                    });
+
+                    errorCheckDropdown.addEventListener('mouseover', function() {
+                        this.style.display = 'block';
+                    });
+
+                    errorCheckDropdown.addEventListener('mouseleave', function() {
+                        this.style.display = 'none';
+                    });
+                </script>
+            </div>
         </div>
     </div>
 
     <div class="dropdown">
-        <button>Views</button>
+        <button style="border: 1px solid var(--border-color);">Views</button>
         <div class="dropdown-content">
             <div class="views">
                 <a href="#" onclick="showMainView()">Main</a>
             </div>
             <div class="views">
-                <a href="#" onclick="createSpreadsheet()">Work Notes</a>
+                <a href="#" onclick="workNoteSpreadsheet()">Work Notes</a>
             </div>
             <div class="views">
                 <a href="#" onclick="showAllColumnsView()">All Data</a>
@@ -148,7 +533,7 @@
     </div>
     
     <div class="dropdown">
-        <button>Search</button>
+        <button style="border: 1px solid var(--border-color);">Search</button>
         <div class="dropdown-content">
             <div class="search-option">
                 <a href="#" onclick="searchByChannel()">Channel</a>
@@ -166,36 +551,36 @@
     </div>
 
     <div class="dropdown">
-        <button>Exports</button>
+        <button style="border: 1px solid var(--border-color);">Exports</button>
         <div class="dropdown-content">
             <div class="exports">
                 <a href="#" class="export-trigger">Paperwork -></a>
-                <div class="exports-submenu" style="position: absolute; left: 100%; top: 0; display: none; background-color: white; border: 1px solid #ddd; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);">
-                    <div class="exports">
-                        <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
-                    </div>
-                    <div class="exports">
-                        <a href="#" onclick="exportInstrumentSchedule()">Instrument Schedule</a>
-                    </div>
-                    <div class="exports">
-                        <a href="#" onclick="exportColorCount()">Color Count</a>
-                    </div>
-                    <div class="exports">
-                        <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
-                    </div>
-                    <div class="exports">
-                        <a href="#" onclick="exportWorkNotes()">Work Notes</a>
-                    </div>
+                <div class="exports-submenu" style="position: absolute; left: 100%; top: 0; display: none; background-color: var(--dropdown-bg); border: 1px solid var(--border-color); box-shadow: 0px 8px 16px 0px var(--menu-shadow); z-index: 2;">
+                    <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
+                    <a href="#" onclick="exportInstrumentSchedule()">Instrument Schedule</a>
+                    <a href="#" onclick="exportColorCount()">Color Count</a>
+                    <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
+                    <a href="#" onclick="exportWorkNotes()">Work Notes</a>
                 </div>
-                <script>
-                    document.querySelector('.export-trigger').addEventListener('mouseover', function(e) {
-                        document.querySelector('.exports-submenu').style.display = 'block';
-                    });
-                    document.querySelector('.exports').addEventListener('mouseleave', function(e) {
-                        document.querySelector('.exports-submenu').style.display = 'none';
-                    });
-                </script>
             </div>
+            <script>
+                const paperworkTrigger = document.querySelector('.export-trigger');
+                const paperworkSubmenu = document.querySelector('.exports-submenu');
+                
+                paperworkTrigger.addEventListener('mouseover', () => {
+                    paperworkSubmenu.style.display = 'block';
+                });
+                
+                paperworkTrigger.addEventListener('mouseout', (e) => {
+                    if (!paperworkSubmenu.contains(e.relatedTarget)) {
+                        paperworkSubmenu.style.display = 'none';
+                    }
+                });
+                
+                paperworkSubmenu.addEventListener('mouseleave', () => {
+                    paperworkSubmenu.style.display = 'none';
+                });
+            </script>
             <div class="exports">
                 <a href="#" onclick="generatePatchFile()">EOS Patch</a>
             </div>
@@ -208,7 +593,7 @@
 </div>
 
 <div class="instruction" id="instructionBox2">"Perform a complete export on exit" in Vecorworks</div> <!-- Instruction box positioned below the menu -->
-<div class="instruction" id="instructionBox">Use the File menu to upload an XML file.</div> <!-- Instruction box positioned below the menu -->
+<div class="instruction" id="instructionBox">Use the File menu to upload a file.</div> <!-- Instruction box positioned below the menu -->
 <div class="instruction" id="instructionBox3">Instructions on how to get XML file:</div> <!-- Instruction box positioned below the menu -->
 <div class="instruction" id="instructionBox4">In Vectoworks go: Spotlight > Spotlight Settings > Spotlight Preferences > Lightwright > Use Automatic Lightwright Data Exchange > Perform a complete export on exit > OK</div> <!-- Instruction box positioned below the menu -->
 
@@ -236,7 +621,7 @@
 
 <script>
 //Version
-const version = 'v1_7_5'
+const version = 'v1_8_2'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -247,115 +632,96 @@ let showName = '';
 let designer = '';
 let headElectrician = '';
 // Add this at the top of your script section, with other global variables
-let workNotesContainer = null; // Global reference to work notes container
-const workNoteHeaders = ['Channel', 'Position', 'Unit', 'Purpose', 'Type', 'Dimmer', 'Address', 'Color', 'Gobo', 'Accessories', 'Notes'];
+let workNotesContainer = null;
+let workNotesData = []; // This will store our work notes
+const workNoteHeaders = ['Channel', 'Position', 'Unit', 'Purpose', 'Type', 'Dimmer', 'Address', 'Color', 'Gobo', 'Accessories', 'Notes', 'Delete'];
 
 // Add these functions to handle saving/loading state
 function saveState() {
     const state = {
         originalData,
-        uploadedFileName,
         showName,
         designer,
         headElectrician,
-        workNotes: workNotesContainer ? workNotesContainer.innerHTML : null,
-        allColumnsView: document.getElementById('allColumnsView') ? document.getElementById('allColumnsView').innerHTML : null,
-        version // Include version for compatibility checking
+        uploadedFileName,
+        workNotesData, // Add work notes to saved state
     };
-    localStorage.setItem('lightRewriteState', JSON.stringify(state));
+    
+    try {
+        localStorage.setItem('lightRewriteState', JSON.stringify(state));
+    } catch (error) {
+        console.error('Error saving state:', error);
+    }
 }
 
 function loadState() {
-    const savedState = localStorage.getItem('lightRewriteState');
-    if (savedState) {
-        const state = JSON.parse(savedState);
-        
-        // Version check
-        if (state.version !== version) {
-            localStorage.removeItem('lightRewriteState');
-            return false;
-        }
-
-        originalData = state.originalData;
-        uploadedFileName = state.uploadedFileName;
-        showName = state.showName;
-        designer = state.designer;
-        headElectrician = state.headElectrician;
-
-        // Restore the table if there's data
-        if (originalData.length > 0) {
-            document.getElementById('dataTable').style.display = 'block';
-            document.getElementById('instructionBox').style.display = 'none';
-            document.getElementById('instructionBox2').style.display = 'none';
-            document.getElementById('instructionBox3').style.display = 'none';
-            document.getElementById('instructionBox4').style.display = 'none';
+    try {
+        const savedState = localStorage.getItem('lightRewriteState');
+        if (savedState) {
+            const state = JSON.parse(savedState);
             
-            // Populate the table
-            const tableBody = document.getElementById('tableBody');
-            tableBody.innerHTML = '';
-            originalData.forEach(item => {
-                const accessoriesText = item.accessories && item.accessories.length > 0
-                    ? item.accessories.map(acc => acc.type || "Unknown").join("; ")
-                    : "";
+            // Restore all state variables
+            originalData = state.originalData || [];
+            showName = state.showName || '';
+            designer = state.designer || '';
+            headElectrician = state.headElectrician || '';
+            uploadedFileName = state.uploadedFileName || '';
+            workNotesData = state.workNotesData || []; // Load work notes from saved state
+            
+            // Only update the table if there's data
+            if (originalData.length > 0) {
+                const tableBody = document.getElementById('tableBody');
+                tableBody.innerHTML = '';
                 
-                const row = `<tr>
-                    <td>${item.channel}</td>
-                    <td>${item.position}</td>
-                    <td>${item.unit}</td>
-                    <td>${item.purpose}</td>
-                    <td>${item.type}</td>
-                    <td>${item.dimmer}</td>
-                    <td>${item.address}</td>
-                    <td>${item.color}</td>
-                    <td>${item.gobo}</td>
-                    <td>${accessoriesText}</td>
-                </tr>`;
-                tableBody.innerHTML += row;
-            });
+                originalData.forEach(item => {
+                    const accessoriesText = Array.isArray(item.accessories) 
+                        ? item.accessories.map(acc => acc.type || acc.inst_type || "Unknown").join("; ")
+                        : typeof item.accessories === 'string' 
+                            ? item.accessories 
+                            : "";
 
-            // Initialize or refresh DataTable
-            if (!tableInitialized) {
-                $('#dataTable').DataTable({
-                    searching: false,
-                    paging: false,
-                    info: false,
-                    order: [],
-                    columnDefs: [{
-                        targets: 1,
-                        orderData: [1, 2],
-                    }]
+                    const row = `<tr>
+                        <td>${item.channel || item.chan || ''}</td>
+                        <td>${item.position || item.pos || ''}</td>
+                        <td>${item.unit || item.unit_number || ''}</td>
+                        <td>${item.purpose || ''}</td>
+                        <td>${item.type || item.inst_type || ''}</td>
+                        <td>${item.dimmer || ''}</td>
+                        <td>${item.address || item.absolute_address || ''}</td>
+                        <td>${item.color || ''}</td>
+                        <td>${item.gobo || item.template || ''}</td>
+                        <td>${accessoriesText}</td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
                 });
-                tableInitialized = true;
-            } else {
-                $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+
+                document.getElementById('dataTable').style.display = 'block';
+                document.getElementById('instructionBox').style.display = 'none';
+                document.getElementById('instructionBox2').style.display = 'none';
+                document.getElementById('instructionBox3').style.display = 'none';
+                document.getElementById('instructionBox4').style.display = 'none';
+                document.getElementById('searchInfo').style.display = 'none';
+
+                if (!tableInitialized) {
+                    $('#dataTable').DataTable({
+                        searching: false,
+                        paging: false,
+                        info: false,
+                        order: [],
+                        columnDefs: [{
+                            targets: 1,
+                            orderData: [1, 2],
+                        }]
+                    });
+                    tableInitialized = true;
+                } else {
+                    $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+                }
             }
         }
-
-        resetSearch();
-
-        // Restore work notes if they exist
-        if (state.workNotes) {
-            workNotesContainer = document.createElement('div');
-            workNotesContainer.id = 'workNotesTable';
-            workNotesContainer.style.overflowX = 'auto';
-            workNotesContainer.innerHTML = state.workNotes;
-            workNotesContainer.style.display = 'none';
-            document.body.appendChild(workNotesContainer);
-        }
-
-        // Restore allColumnsView if it exists
-        if (state.allColumnsView) {
-            const container = document.createElement('div');
-            container.id = 'allColumnsView';
-            container.style.overflowX = 'auto';
-            container.innerHTML = state.allColumnsView;
-            container.style.display = 'none';
-            document.body.appendChild(container);
-        }
-
-        return true;
+    } catch (error) {
+        console.error('Error loading state:', error);
     }
-    return false;
 }
 
 function processFile() {
@@ -468,7 +834,6 @@ function processFile() {
     reader.readAsText(file);
 }
 
-
 // Function to ask for show information and save it in global variables
 function getShowInfo() {
     showName = prompt("Enter the name of the show:", showName || "Unnamed Show");
@@ -482,7 +847,6 @@ function getShowInfo() {
 
     saveState();
 }
-
 
 function searchByChannel() {
     const input = prompt("Enter a range (e.g., 1-5) or a list of channel numbers (e.g., 1,2,3):");
@@ -658,9 +1022,6 @@ function promptUserToSelectPositions(userSelectionBox, checkboxHTML) {
     });
 }
 
-
-
-
 function resetSearch() {
     const tableBody = document.getElementById('tableBody');
     tableBody.innerHTML = ''; // Clear existing rows
@@ -695,7 +1056,6 @@ function resetSearch() {
     // Hide search info
     document.getElementById('searchInfo').style.display = 'none';
 }
-
 
 function exportChannelHookup() {
     function createTableRow(instrument) {
@@ -1231,338 +1591,302 @@ function exportTableToCSV() {
     document.body.removeChild(link);
 }
 
-///Work Notes
-// Function to create the table and handle auto-fill functionality
-function createSpreadsheet() {
+///Work Notes// Function to create the table and handle auto-fill functionality
+function workNoteSpreadsheet() {
     // Hide the original DataTable
     document.getElementById('dataTable').style.display = 'none';
     
-    // If work notes container already exists, just show it
-    if (workNotesContainer) {
+    // Create a container for the table if it doesn't exist
+    if (!workNotesContainer) {
+        workNotesContainer = document.createElement('div');
+        workNotesContainer.id = 'workNotesTable';
+        workNotesContainer.style.overflowX = 'auto';
+        document.body.appendChild(workNotesContainer);
+    } else {
         workNotesContainer.style.display = 'block';
-        return;
+        workNotesContainer.innerHTML = ''; // Clear existing content
     }
 
-    // Create a container for the table
-    workNotesContainer = document.createElement('div');
-    workNotesContainer.id = 'workNotesTable';
-    workNotesContainer.style.overflowX = 'auto';
-    document.body.appendChild(workNotesContainer);
-
-    // Create the table element
+    // Create and set up table (same as before)
     const table = document.createElement('table');
     table.style.width = '100%';
     table.style.borderCollapse = 'collapse';
-    
-    // Keep track of sort state
-    const sortState = {
-        column: null,
-        ascending: true
-    };
+    table.style.marginTop = '20px';
 
-    // Create the header row
+    // Create header row with theme-aware styling
     const headerRow = document.createElement('tr');
     workNoteHeaders.forEach(header => {
         const th = document.createElement('th');
         th.innerText = header;
-        th.style.border = '1px solid black';
+        th.style.border = '1px solid var(--border-color)';
         th.style.padding = '8px';
-        th.style.backgroundColor = '#f2f2f2';
-        th.style.cursor = 'pointer';
-        
-        // Set specific widths for columns
-        if (header === 'Channel') {
-            th.style.width = '60px';  // Adjust this value as needed
-        } else if (header === 'Notes') {
-            th.style.width = '200px'; // Optional: make Notes column wider
-        }
-        
-        // Add click event for sorting
-        th.addEventListener('click', () => {
-            sortTable(header, table);
-        });
-        
+        th.style.backgroundColor = 'var(--header-bg)';
+        th.style.color = 'var(--text-color)';
         headerRow.appendChild(th);
     });
     table.appendChild(headerRow);
 
-    // Add a single row with an input field for the channel
-    addInputRow(table);
+    // Restore existing work notes if any exist
+    workNotesData.forEach(noteData => {
+        const row = createWorkNoteRow(noteData, table);
+        table.appendChild(row);
+    });
+
+    // Add input row
+    const inputRow = createInputRow(table);
+    table.appendChild(inputRow);
 
     // Append table to container
     workNotesContainer.appendChild(table);
-
-    function sortTable(header, table) {
-        // Get all rows except header and input row
-        const rows = Array.from(table.rows).slice(1, -1);
-        const inputRow = table.rows[table.rows.length - 1];
-        
-        // Determine column index
-        const columnIndex = workNoteHeaders.indexOf(header);
-        
-        // Update sort state
-        if (sortState.column === header) {
-            sortState.ascending = !sortState.ascending;
-        } else {
-            sortState.column = header;
-            sortState.ascending = true;
-        }
-
-        // Sort rows
-        rows.sort((a, b) => {
-            let aValue = a.cells[columnIndex].textContent;
-            let bValue = b.cells[columnIndex].textContent;
-
-            // Handle numeric sorting for Channel, Unit, Dimmer, and Address
-            if (['Channel', 'Unit', 'Dimmer', 'Address'].includes(header)) {
-                aValue = parseInt(aValue) || 0;
-                bValue = parseInt(bValue) || 0;
-                return sortState.ascending ? aValue - bValue : bValue - aValue;
-            }
-
-            // String comparison for other columns
-            return sortState.ascending ? 
-                aValue.localeCompare(bValue) : 
-                bValue.localeCompare(aValue);
-        });
-
-        // Remove existing rows except header and input
-        while (table.rows.length > 2) {
-            table.deleteRow(1);
-        }
-
-        // Add sorted rows back
-        rows.forEach(row => {
-            table.insertBefore(row, inputRow);
-        });
-    }
-
-    function addInputRow(table) {
-        const row = document.createElement('tr');
-        const cell = document.createElement('td');
-        cell.colSpan = workNoteHeaders.length;
-        cell.style.padding = '10px';
-        cell.style.display = 'flex';
-        cell.style.gap = '10px';
-
-        // Create select for input type
-        const select = document.createElement('select');
-        select.style.width = '100px';
-        const options = ['Channel', 'Address', 'Dimmer', 'Color'];
-        options.forEach(opt => {
-            const option = document.createElement('option');
-            option.value = opt.toLowerCase();
-            option.textContent = opt;
-            select.appendChild(option);
-        });
-
-        // Create input for search value
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.style.width = '100px';
-        input.placeholder = 'Enter value';
-
-        // Create input for notes
-        const notesInput = document.createElement('input');
-        notesInput.type = 'text';
-        notesInput.style.width = '200px';
-        notesInput.placeholder = 'Enter notes';
-
-        // Create button to add row
-        const button = document.createElement('button');
-        button.textContent = 'Add Row';
-        button.onclick = () => {
-            const searchValue = input.value.trim();
-            const notes = notesInput.value.trim();
-            if (!searchValue) return;
-
-            // Find matching instruments
-            const matchingInstruments = originalData.filter(instrument => {
-                const searchField = select.value;
-                const instrumentValue = 
-                    searchField === 'channel' ? (instrument.channel || instrument.chan || '') :
-                    searchField === 'address' ? (instrument.address || instrument.absolute_address || '') :
-                    searchField === 'dimmer' ? (instrument.dimmer || '') :
-                    searchField === 'color' ? (instrument.color || '') : '';
-                
-                return instrumentValue.toString() === searchValue;
-            });
-
-            matchingInstruments.forEach(instrument => {
-                const newRow = document.createElement('tr');
-                workNoteHeaders.forEach(header => {
-                    const td = document.createElement('td');
-                    td.style.border = '1px solid black';
-                    td.style.padding = '8px';
-
-                    if (header === 'Notes') {
-                        td.textContent = notes;
-                    } else if (header === 'Delete') {
-                        // Create delete button
-                        const deleteButton = document.createElement('button');
-                        deleteButton.innerHTML = '×';
-                        deleteButton.style.cursor = 'pointer';
-                        deleteButton.style.border = 'none';
-                        deleteButton.style.background = 'none';
-                        deleteButton.style.color = 'red';
-                        deleteButton.style.fontSize = '20px';
-                        deleteButton.style.padding = '0';
-                        deleteButton.title = 'Delete Row';
-                        
-                        deleteButton.onclick = function() {
-                            newRow.remove();
-                            saveState();
-                        };
-                        
-                        td.style.width = '30px';
-                        td.style.textAlign = 'center';
-                        td.appendChild(deleteButton);
-                    } else {
-                        // Handle different field names and accessories
-                        let value = '';
-                        switch(header.toLowerCase()) {
-                            case 'channel':
-                                value = instrument.channel || instrument.chan || '';
-                                break;
-                            case 'position':
-                                value = instrument.position || instrument.pos || '';
-                                break;
-                            case 'unit':
-                                value = instrument.unit || instrument.unit_number || '';
-                                break;
-                            case 'purpose':
-                                value = instrument.purpose || '';
-                                break;
-                            case 'type':
-                                value = instrument.type || instrument.inst_type || '';
-                                break;
-                            case 'dimmer':
-                                value = instrument.dimmer || '';
-                                break;
-                            case 'address':
-                                value = instrument.address || instrument.absolute_address || '';
-                                break;
-                            case 'color':
-                                value = instrument.color || '';
-                                break;
-                            case 'gobo':
-                                value = instrument.gobo || instrument.template || '';
-                                break;
-                            case 'accessories':
-                                value = Array.isArray(instrument.accessories) 
-                                    ? instrument.accessories.map(acc => acc.type || acc.inst_type || "Unknown").join("; ")
-                                    : typeof instrument.accessories === 'string' 
-                                        ? instrument.accessories 
-                                        : "";
-                                break;
-                        }
-                        td.textContent = value;
-                    }
-                    newRow.appendChild(td);
-                });
-                table.insertBefore(newRow, row);
-            });
-
-            // Clear inputs after adding
-            input.value = '';
-            notesInput.value = '';
-        };
-
-        cell.appendChild(select);
-        cell.appendChild(input);
-        cell.appendChild(notesInput);
-        cell.appendChild(button);
-        row.appendChild(cell);
-        table.appendChild(row);
-    }
-
-    function handleInput(inputValue, searchType, notes) {
-        let matchingData = [];
-
-        switch(searchType) {
-            case 'channel':
-                matchingData = originalData.filter(item => item.channel === inputValue);
-                break;
-            case 'address':
-                matchingData = originalData.filter(item => item.address === inputValue);
-                break;
-            case 'dimmer':
-                matchingData = originalData.filter(item => item.dimmer === inputValue);
-                break;
-            case 'color':
-                matchingData = originalData.filter(item => 
-                    item.color && item.color.toLowerCase().includes(inputValue.toLowerCase())
-                );
-                break;
-        }
-
-        if (matchingData.length > 0) {
-            matchingData.forEach(rowData => {
-                const row = document.createElement('tr');
-                
-                // Add all data cells first
-                workNoteHeaders.forEach(header => {
-                    const cell = document.createElement('td');
-                    cell.style.border = '1px solid black';
-                    cell.style.padding = '8px';
-                    
-                    if (header === 'Delete') {
-                        // Create delete button
-                        const deleteButton = document.createElement('button');
-                        deleteButton.innerHTML = '×';
-                        deleteButton.style.cursor = 'pointer';
-                        deleteButton.style.border = 'none';
-                        deleteButton.style.background = 'none';
-                        deleteButton.style.color = 'red';
-                        deleteButton.style.fontSize = '20px';
-                        deleteButton.style.padding = '0';
-                        deleteButton.title = 'Delete Row';
-                        
-                        deleteButton.onclick = function() {
-                            row.remove();
-                            saveState();
-                        };
-                        
-                        cell.style.width = '30px';
-                        cell.style.textAlign = 'center';
-                        cell.appendChild(deleteButton);
-                    } else if (header === 'Notes') {
-                        cell.innerText = notes || '';
-                    } else if (header === 'Accessories' && Array.isArray(rowData.accessories)) {
-                        cell.innerText = rowData.accessories.map(acc => acc.type).join(', ') || '';
-                    } else {
-                        cell.innerText = rowData[header.toLowerCase()] || '';
-                    }
-                    
-                    row.appendChild(cell);
-                });
-                
-                // Add delete row button
-                const deleteRowCell = document.createElement('td');
-                const deleteRowButton = document.createElement('button');
-                deleteRowButton.innerHTML = 'Delete Row';
-                deleteRowButton.style.cursor = 'pointer';
-                deleteRowButton.onclick = function() {
-                    row.remove();
-                    saveState();
-                };
-                deleteRowCell.appendChild(deleteRowButton);
-                row.appendChild(deleteRowCell);
-                
-                table.insertBefore(row, table.lastElementChild);
-            });
-        } else {
-            alert(`No fixture found with ${searchType} ${inputValue}`);
-        }
-    }
-
-    // Add saveState() calls after table modifications
-    const originalHandleInput = handleInput;
-    handleInput = function(...args) {
-        originalHandleInput.apply(this, args);
-        saveState();
-    };
+    workNotesContainer.style.display = 'block';
+    workNotesContainer.scrollIntoView({ behavior: 'smooth' });
 }
+
+function createWorkNoteRow(noteData, table) {
+    const newRow = document.createElement('tr');
+    workNoteHeaders.forEach(header => {
+        const td = document.createElement('td');
+        td.style.border = '1px solid black';
+        td.style.padding = '8px';
+
+        if (header === 'Notes') {
+            td.textContent = noteData.notes || '';
+        } else if (header === 'Delete') {
+            const deleteButton = document.createElement('button');
+            deleteButton.innerHTML = '×';
+            deleteButton.style.cursor = 'pointer';
+            deleteButton.onclick = () => {
+                // Remove from DOM
+                newRow.remove();
+                // Remove from workNotesData array
+                const index = workNotesData.findIndex(note => 
+                    note.channel === noteData.channel && 
+                    note.position === noteData.position && 
+                    note.unit === noteData.unit &&
+                    note.notes === noteData.notes
+                );
+                if (index > -1) {
+                    workNotesData.splice(index, 1);
+                }
+            };
+            td.appendChild(deleteButton);
+        } else {
+            td.textContent = noteData[header.toLowerCase()] || '';
+        }
+        newRow.appendChild(td);
+    });
+    return newRow;
+}
+
+function createInputRow(table) {
+    const inputRow = document.createElement('tr');
+    const inputCell = document.createElement('td');
+    inputCell.colSpan = workNoteHeaders.length;
+    inputCell.style.padding = '10px';
+    inputCell.style.display = 'flex';
+    inputCell.style.gap = '10px';
+
+    // Create select for input type
+    const select = document.createElement('select');
+    select.style.width = '100px';
+    ['Channel', 'Address', 'Dimmer', 'Color'].forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.toLowerCase();
+        option.textContent = opt;
+        select.appendChild(option);
+    });
+
+    // Create input fields
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.style.width = '100px';
+    searchInput.placeholder = 'Enter value';
+
+    const notesInput = document.createElement('input');
+    notesInput.type = 'text';
+    notesInput.style.width = '200px';
+    notesInput.placeholder = 'Enter notes';
+
+    // Create add button
+    const addButton = document.createElement('button');
+    addButton.textContent = 'Add Row';
+    addButton.style.backgroundColor = 'var(--dropdown-bg)';
+    addButton.style.color = 'var(--text-color)';
+    addButton.style.border = '1px solid var(--border-color)';
+    addButton.style.cursor = 'pointer';
+    addButton.style.padding = '4px 8px';
+    addButton.onmouseover = () => {
+        addButton.style.backgroundColor = 'var(--dropdown-hover)';
+    };
+    addButton.onmouseout = () => {
+        addButton.style.backgroundColor = 'var(--dropdown-bg)';
+    };
+    addButton.onclick = () => {
+        const searchValue = searchInput.value.trim();
+        const notes = notesInput.value.trim();
+        if (!searchValue) return;
+
+        // Find matching instruments
+        const matchingInstruments = originalData.filter(instrument => {
+            const searchField = select.value;
+            const instrumentValue = 
+                searchField === 'channel' ? (instrument.channel || instrument.chan || '') :
+                searchField === 'address' ? (instrument.address || instrument.absolute_address || '') :
+                searchField === 'dimmer' ? (instrument.dimmer || '') :
+                searchField === 'color' ? (instrument.color || '') : '';
+            
+            return instrumentValue.toString() === searchValue;
+        });
+
+        matchingInstruments.forEach(instrument => {
+            // Create note data object
+            const noteData = {
+                channel: instrument.channel || instrument.chan || '',
+                position: instrument.position || instrument.pos || '',
+                unit: instrument.unit || instrument.unit_number || '',
+                purpose: instrument.purpose || '',
+                type: instrument.type || instrument.inst_type || '',
+                dimmer: instrument.dimmer || '',
+                address: instrument.address || instrument.absolute_address || '',
+                color: instrument.color || '',
+                gobo: instrument.gobo || instrument.template || '',
+                accessories: Array.isArray(instrument.accessories) 
+                    ? instrument.accessories.map(acc => acc.type || acc.inst_type || "Unknown").join("; ")
+                    : instrument.accessories || '',
+                notes: notes
+            };
+
+            // Add to workNotesData array
+            workNotesData.push(noteData);
+
+            // Create and add row to table
+            const newRow = createWorkNoteRow(noteData, table);
+            table.insertBefore(newRow, inputRow);
+        });
+
+        // Clear inputs after adding
+        searchInput.value = '';
+        notesInput.value = '';
+    };
+
+    // Append all elements to input row
+    inputCell.appendChild(select);
+    inputCell.appendChild(searchInput);
+    inputCell.appendChild(notesInput);
+    inputCell.appendChild(addButton);
+    inputRow.appendChild(inputCell);
+
+    return inputRow;
+}
+
+function handleInput(inputValue, searchType, notes) {
+    let matchingData = [];
+
+    switch(searchType) {
+        case 'channel':
+            matchingData = originalData.filter(item => item.channel === inputValue);
+            break;
+        case 'address':
+            matchingData = originalData.filter(item => item.address === inputValue);
+            break;
+        case 'dimmer':
+            matchingData = originalData.filter(item => item.dimmer === inputValue);
+            break;
+        case 'color':
+            matchingData = originalData.filter(item => 
+                item.color && item.color.toLowerCase().includes(inputValue.toLowerCase())
+            );
+            break;
+    }
+
+    if (matchingData.length > 0) {
+        matchingData.forEach(rowData => {
+            const row = document.createElement('tr');
+            
+            // Add all data cells first
+            workNoteHeaders.forEach(header => {
+                const cell = document.createElement('td');
+                cell.style.border = '1px solid black';
+                cell.style.padding = '8px';
+                
+                if (header === 'Delete') {
+                    // Create delete button
+                    const deleteButton = document.createElement('button');
+                    deleteButton.innerHTML = '×';
+                    deleteButton.style.cursor = 'pointer';
+                    deleteButton.style.border = 'none';
+                    deleteButton.style.background = 'var(--background-color)';
+                    deleteButton.style.color = 'var(--text-color)';
+                    deleteButton.style.fontSize = '20px';
+                    deleteButton.style.padding = '5px';
+                    deleteButton.style.borderRadius = '50%';
+                    deleteButton.title = 'Delete Row';
+                    
+                    // Add hover effect
+                    deleteButton.onmouseover = function() {
+                        this.style.background = 'var(--dropdown-hover)';
+                        this.style.color = 'red';
+                    };
+                    deleteButton.onmouseout = function() {
+                        this.style.background = 'var(--background-color)';
+                        this.style.color = 'var(--text-color)';
+                    };
+                    
+                    deleteButton.onclick = function() {
+                        row.remove();
+                        saveState();
+                    };
+                    
+                    cell.style.width = '30px';
+                    cell.style.textAlign = 'center';
+                    cell.appendChild(deleteButton);
+                } else if (header === 'Notes') {
+                    cell.innerText = notes || '';
+                } else if (header === 'Accessories' && Array.isArray(rowData.accessories)) {
+                    cell.innerText = rowData.accessories.map(acc => acc.type).join(', ') || '';
+                } else {
+                    cell.innerText = rowData[header.toLowerCase()] || '';
+                }
+                
+                row.appendChild(cell);
+            });
+            
+            // Add delete row button
+            const deleteRowCell = document.createElement('td');
+            const deleteRowButton = document.createElement('button');
+            deleteRowButton.innerHTML = 'Delete Row';
+            deleteRowButton.style.cursor = 'pointer';
+            deleteRowButton.style.background = 'var(--background-color)';
+            deleteRowButton.style.color = 'var(--text-color)';
+            deleteRowButton.style.border = '1px solid var(--border-color)';
+            deleteRowButton.style.padding = '5px 10px';
+            deleteRowButton.style.borderRadius = '5px';
+            deleteRowButton.onmouseover = function() {
+                this.style.background = 'var(--dropdown-hover)';
+            };
+            deleteRowButton.onmouseout = function() {
+                this.style.background = 'var(--background-color)';
+            };
+            deleteRowButton.onclick = function() {
+                row.remove();
+                saveState();
+            };
+            deleteRowCell.appendChild(deleteRowButton);
+            row.appendChild(deleteRowCell);
+            
+            table.insertBefore(row, table.lastElementChild);
+        });
+    } else {
+        alert(`No fixture found with ${searchType} ${inputValue}`);
+    }
+}
+
+// Add saveState() calls after table modifications
+const originalHandleInput = handleInput;
+handleInput = function(...args) {
+    originalHandleInput.apply(this, args);
+    saveState();
+};
 
 function showMainView() {
     // Show the original table
@@ -2052,7 +2376,7 @@ function displayDifferences(differences) {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
+        background: var(--modal-overlay);
         display: flex;
         justify-content: center;
         align-items: flex-start;
@@ -2063,7 +2387,8 @@ function displayDifferences(differences) {
     // Create the content container
     const content = document.createElement('div');
     content.style.cssText = `
-        background: white;
+        background: var(--modal-bg);
+        color: var(--text-color);
         padding: 20px;
         margin: 20px;
         border-radius: 8px;
@@ -2082,7 +2407,7 @@ function displayDifferences(differences) {
         display: flex;
         justify-content: flex-end;
         gap: 10px;
-        background: white;
+        background: var(--modal-bg);
         padding: 5px;
         z-index: 2;
     `;
@@ -2092,7 +2417,7 @@ function displayDifferences(differences) {
     saveButton.style.cssText = `
         padding: 5px 10px;
         background: #4CAF50;
-        color: white;
+        color: var(--text-color);
         border: none;
         border-radius: 4px;
         cursor: pointer;
@@ -2370,9 +2695,10 @@ function showAllColumnsView() {
     container.style.cssText = `
         padding: 20px;
         margin: 20px;
-        background: #f5f5f5;
+        background: var(--background-color);
         border-radius: 8px;
         font-family: Arial, sans-serif;
+        color: var(--text-color);
     `;
 
     // Create collapsible header
@@ -2382,7 +2708,7 @@ function showAllColumnsView() {
         align-items: center;
         cursor: pointer;
         padding: 10px;
-        background: #e0e0e0;
+        background: var(--header-bg);
         border-radius: 4px;
         margin-bottom: 10px;
     `;
@@ -2395,6 +2721,7 @@ function showAllColumnsView() {
 
     const title = document.createElement('h2');
     title.textContent = "Available Columns";
+    title.style.color = 'var(--text-color)';
     title.style.margin = '0';
 
     headerDiv.appendChild(collapseIcon);
@@ -2449,7 +2776,7 @@ function showAllColumnsView() {
             const th = document.createElement('th');
             th.textContent = header;
             th.style.padding = '8px';
-            th.style.border = '1px solid #ddd';
+            th.style.border = '1px solid var(--border-color)';
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -2470,7 +2797,7 @@ function showAllColumnsView() {
                 
                 td.textContent = value || '';
                 td.style.padding = '8px';
-                td.style.border = '1px solid #ddd';
+                td.style.border = '1px solid var(--border-color)';
                 row.appendChild(td);
             });
             tbody.appendChild(row);
@@ -2496,7 +2823,7 @@ function showAllColumnsView() {
         const item = document.createElement('li');
         item.style.cssText = `
             padding: 8px 0;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
             font-size: 16px;
             display: flex;
             align-items: center;
@@ -2557,6 +2884,575 @@ function showAllColumnsView() {
 
     // Initialize table with all columns
     updateTable();
+}
+
+function checkAddresses() {
+    // Filter instruments with no address or address = 0
+    const noAddressInstruments = originalData.filter(instrument => 
+        !instrument.absolute_address || 
+        instrument.absolute_address === "0" ||
+        instrument.absolute_address === 0
+    );
+
+    if (noAddressInstruments.length === 0) {
+        alert('All instruments have addresses assigned.');
+        return;
+    }
+
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--modal-overlay);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        overflow-y: auto;
+        z-index: 1000;
+    `;
+
+    // Create content container
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: var(--modal-bg);
+        color: var(--text-color);
+        padding: 20px;
+        margin: 20px;
+        border-radius: 8px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+
+    // Add close and save buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        position: sticky;
+        top: 0;
+        right: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        background: var(--modal-bg);
+        padding: 5px;
+        z-index: 2;
+    `;
+
+    const saveButton = document.createElement('button');
+    saveButton.innerHTML = 'Save Changes';
+    saveButton.style.cssText = `
+        padding: 5px 10px;
+        background: #4CAF50;
+        color: var(--text-color);
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    `;
+
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        color: var(--text-color);
+    `;
+
+    // Create the content HTML
+    content.innerHTML = `
+        <style>
+            .address-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 20px; 
+            }
+            .address-table th, .address-table td { 
+                border: 1px solid var(--border-color); 
+                padding: 8px; 
+                text-align: left; 
+            }
+            .address-table th { 
+                background-color: var(--header-bg); 
+                color: var(--text-color);
+                position: sticky;
+                top: 40px;
+                z-index: 1;
+            }
+            .address-input {
+                width: 80px;
+                padding: 4px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                background-color: var(--input-bg);
+                color: var(--text-color);
+            }
+            h1 { 
+                color: var(--text-color);
+                margin-right: 40px; 
+            }
+            .invalid-input {
+                border-color: red;
+                background-color: var(--error-bg);
+            }
+        </style>
+        <h1>Instruments Missing Addresses (${noAddressInstruments.length} items)</h1>
+        <table class="address-table">
+            <tr>
+                <th>Channel</th>
+                <th>Position</th>
+                <th>Unit</th>
+                <th>Purpose</th>
+                <th>Type</th>
+                <th>Dimmer</th>
+                <th>Color</th>
+                <th>New Address</th>
+            </tr>
+            ${noAddressInstruments.map((row, index) => `
+                <tr>
+                    <td>${row.channel || ''}</td>
+                    <td>${row.position || ''}</td>
+                    <td>${row.unit || row.unit_number || ''}</td>
+                    <td>${row.purpose || ''}</td>
+                    <td>${row.type || row.inst_type || ''}</td>
+                    <td>${row.dimmer || ''}</td>
+                    <td>${row.color || ''}</td>
+                    <td>
+                        <input type="number" 
+                               class="address-input" 
+                               data-index="${index}"
+                               min="1"
+                               placeholder="Enter address">
+                    </td>
+                </tr>
+            `).join('')}
+        </table>
+    `;
+
+    // Add save functionality
+    saveButton.onclick = () => {
+        const inputs = content.querySelectorAll('.address-input');
+        let hasInvalidInputs = false;
+
+        inputs.forEach(input => {
+            const value = parseInt(input.value);
+            if (input.value && (isNaN(value) || value < 1)) {
+                input.classList.add('invalid-input');
+                hasInvalidInputs = true;
+            } else {
+                input.classList.remove('invalid-input');
+            }
+        });
+
+        if (hasInvalidInputs) {
+            alert('Please enter valid addresses (positive numbers only).');
+            return;
+        }
+
+        // Update addresses in originalData
+        inputs.forEach(input => {
+            if (input.value) {
+                const index = parseInt(input.dataset.index);
+                const instrument = noAddressInstruments[index];
+                const originalIndex = originalData.findIndex(item => 
+                    item.channel === instrument.channel &&
+                    item.position === instrument.position &&
+                    item.unit === instrument.unit
+                );
+
+                if (originalIndex !== -1) {
+                    originalData[originalIndex].absolute_address = input.value;
+                    originalData[originalIndex].address = input.value;
+                }
+            }
+        });
+
+        // Update the main table
+        resetSearch();
+        
+        // Close modal
+        document.body.removeChild(modal);
+    };
+
+    // Add close functionality
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    // Add close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Add buttons and content to modal
+    buttonContainer.appendChild(saveButton);
+    buttonContainer.appendChild(closeButton);
+    content.insertBefore(buttonContainer, content.firstChild);
+    modal.appendChild(content);
+
+    // Add modal to page
+    document.body.appendChild(modal);
+}
+
+function checkChannels() {
+    // Filter instruments with no channel or channel = 0
+    const noChannelInstruments = originalData.filter(instrument => 
+        !instrument.channel ||
+        instrument.channel === "0" ||
+        instrument.channel === 0
+    );
+
+    if (noChannelInstruments.length === 0) {
+        alert('All instruments have channels assigned.');
+        return;
+    }
+
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--modal-overlay);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        overflow-y: auto;
+        z-index: 1000;
+    `;
+
+    // Create content container
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: var(--modal-bg);
+        color: var(--text-color);
+        padding: 20px;
+        margin: 20px;
+        border-radius: 8px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+
+    // Add close and save buttons
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        position: sticky;
+        top: 0;
+        right: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        background: var(--modal-bg);
+        padding: 5px;
+        z-index: 2;
+    `;
+
+    const saveButton = document.createElement('button');
+    saveButton.innerHTML = 'Save Changes';
+    saveButton.style.cssText = `
+        padding: 5px 10px;
+        background: var(--button-bg);
+        color: var(--button-text);
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    `;
+
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        color: var(--text-color);
+    `;
+
+    // Create the content HTML
+    content.innerHTML = `
+        <style>
+            .channel-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 20px; 
+            }
+            .channel-table th, .channel-table td { 
+                border: 1px solid var(--border-color); 
+                padding: 8px; 
+                text-align: left; 
+            }
+            .channel-table th { 
+                background-color: var(--header-bg); 
+                color: var(--text-color);
+                position: sticky;
+                top: 40px;
+                z-index: 1;
+            }
+            .channel-input {
+                width: 80px;
+                padding: 4px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                background-color: var(--input-bg);
+                color: var(--text-color);
+            }
+            h1 { 
+                color: var(--text-color);
+                margin-right: 40px; 
+            }
+            .invalid-input {
+                border-color: red;
+                background-color: var(--error-bg);
+            }
+        </style>
+        <h1>Instruments Missing Channels (${noChannelInstruments.length} items)</h1>
+        <table class="channel-table">
+            <tr>
+                <th>Position</th>
+                <th>Unit</th>
+                <th>Purpose</th>
+                <th>Type</th>
+                <th>Address</th>
+                <th>Color</th>
+                <th>New Channel</th>
+            </tr>
+            ${noChannelInstruments.map((row, index) => `
+                <tr>
+                    <td>${row.position || row.pos || ''}</td>
+                    <td>${row.unit || row.unit_number || ''}</td>
+                    <td>${row.purpose || ''}</td>
+                    <td>${row.type || row.inst_type || ''}</td>
+                    <td>${row.address || row.absolute_address || ''}</td>
+                    <td>${row.color || ''}</td>
+                    <td>
+                        <input type="number" 
+                               class="channel-input" 
+                               data-index="${index}"
+                               min="1"
+                               placeholder="Enter channel">
+                    </td>
+                </tr>
+            `).join('')}
+        </table>
+    `;
+
+    // Add save functionality
+    saveButton.onclick = () => {
+        const inputs = content.querySelectorAll('.channel-input');
+        let hasInvalidInputs = false;
+
+        inputs.forEach(input => {
+            const value = parseInt(input.value);
+            if (input.value && (isNaN(value) || value < 1)) {
+                input.classList.add('invalid-input');
+                hasInvalidInputs = true;
+            } else {
+                input.classList.remove('invalid-input');
+            }
+        });
+
+        if (hasInvalidInputs) {
+            alert('Please enter valid channels (positive numbers only).');
+            return;
+        }
+
+        // Update channels in originalData
+        inputs.forEach(input => {
+            if (input.value) {
+                const index = parseInt(input.dataset.index);
+                const instrument = noChannelInstruments[index];
+                const originalIndex = originalData.findIndex(item => 
+                    item.position === instrument.position &&
+                    item.unit === instrument.unit
+                );
+
+                if (originalIndex !== -1) {
+                    originalData[originalIndex].channel = input.value;
+                    originalData[originalIndex].chan = input.value;
+                }
+            }
+        });
+
+        // Update the main table
+        resetSearch();
+        
+        // Close modal
+        document.body.removeChild(modal);
+    };
+
+    // Add close functionality
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    // Add close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Add buttons and content to modal
+    buttonContainer.appendChild(saveButton);
+    buttonContainer.appendChild(closeButton);
+    content.insertBefore(buttonContainer, content.firstChild);
+    modal.appendChild(content);
+
+    // Add modal to page
+    document.body.appendChild(modal);
+}
+
+function checkDimmerWattage() {
+    // Create a map to store dimmer information
+    const dimmerMap = new Map();
+
+    // Collect all instruments grouped by dimmer
+    originalData.forEach(instrument => {
+        const dimmer = instrument.dimmer;
+        if (!dimmer || dimmer === "0") return; // Skip instruments with no dimmer
+
+        // Get wattage directly from the instrument data
+        const wattage = parseInt(instrument.wattage) || 0;
+
+        // Add instrument to dimmer map
+        if (!dimmerMap.has(dimmer)) {
+            dimmerMap.set(dimmer, []);
+        }
+        dimmerMap.get(dimmer).push({
+            channel: instrument.channel || instrument.chan,
+            type: instrument.type || instrument.inst_type,
+            wattage: wattage,
+            position: instrument.position || instrument.pos,
+            unit: instrument.unit || instrument.unit_number
+        });
+    });
+
+    // Create modal for display
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--modal-overlay);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        overflow-y: auto;
+        z-index: 1000;
+    `;
+
+    // Create content container
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: var(--modal-bg);
+        color: var(--text-color);
+        padding: 20px;
+        margin: 20px;
+        border-radius: 8px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+
+    // Sort dimmers numerically
+    const sortedDimmers = Array.from(dimmerMap.keys()).sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Create the content HTML
+    content.innerHTML = `
+        <style>
+            .dimmer-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 20px; 
+            }
+            .dimmer-table th, .dimmer-table td { 
+                border: 1px solid var(--border-color); 
+                padding: 8px; 
+                text-align: left; 
+            }
+            .dimmer-table th { 
+                background-color: var(--header-bg);
+                color: var(--text-color);
+                position: sticky;
+                top: 40px;
+                z-index: 1;
+            }
+            .warning {
+                background-color: var(--warning-bg);
+            }
+            h1 { 
+                color: var(--text-color);
+                margin-right: 40px; 
+            }
+        </style>
+        <h1>Dimmer Load Analysis</h1>
+        <table class="dimmer-table">
+            <tr>
+                <th>Dimmer</th>
+                <th>Total Load</th>
+                <th>Instruments</th>
+            </tr>
+            ${sortedDimmers.map(dimmer => {
+                const instruments = dimmerMap.get(dimmer);
+                const totalWattage = instruments.reduce((sum, inst) => sum + inst.wattage, 0);
+                const isOverloaded = totalWattage > 2400; // Standard dimmer capacity
+
+                return `
+                    <tr class="${isOverloaded ? 'warning' : ''}">
+                        <td>${dimmer}</td>
+                        <td>${totalWattage}W ${isOverloaded ? '⚠️' : ''}</td>
+                        <td>${instruments.map(inst => 
+                            `Channel ${inst.channel} (${inst.type} - ${inst.wattage}W) @ ${inst.position} U${inst.unit}`
+                        ).join('<br>')}</td>
+                    </tr>
+                `;
+            }).join('')}
+        </table>
+    `;
+
+    // Add close button
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        color: var(--text-color);
+    `;
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    // Add close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    content.insertBefore(closeButton, content.firstChild);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+}
+
+function getSystemColorMode() {
+    const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return isDarkMode ? "dark" : "light";
 }
 
 </script>
