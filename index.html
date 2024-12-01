@@ -389,6 +389,27 @@
         .exports-submenu a:hover {
             background-color: var(--dropdown-hover);
         }
+
+        /* Add this CSS to style the sorted column */
+        .sorted-column {
+            /* Default styles (light mode) */
+            background-color: var(--header-bg); /* Use the header background color */
+            color: var(--text-color); /* Use the text color */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .sorted-column {
+                background-color: #000000; /* Black background for dark mode */
+                color: #ffffff; /* White text for dark mode */
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .sorted-column {
+                background-color: #ffffff; /* White background for light mode */
+                color: #000000; /* Black text for light mode */
+            }
+        }
     </style>
 </head>
 <body>
@@ -621,7 +642,7 @@
 
 <script>
 //Version
-const version = 'v1_8_2'
+const version = 'v1_8_3'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -711,7 +732,32 @@ function loadState() {
                         columnDefs: [{
                             targets: 1,
                             orderData: [1, 2],
-                        }]
+                        }],
+                        createdRow: function(row, data, dataIndex) {
+                            const api = this.api();
+                            const sortedColumnIndex = api.order()[0][0]; // Get the index of the sorted column
+                            $(row).find('td').eq(sortedColumnIndex).addClass('sorted-column'); // Add class to the sorted column cell
+                            // Set the background color to match the system theme
+                            $(row).find('td').eq(sortedColumnIndex).css({
+                                backgroundColor: 'var(--background-color)', // Match the system theme background color
+                                color: 'var(--text-color)' // Match text color
+                            });
+                        },
+                        // Add this to handle the header sorting
+                        order: [[0, 'asc']], // Default sorting
+                        drawCallback: function(settings) {
+                            const api = this.api();
+                            const sortedColumnIndex = api.order()[0][0]; // Get the index of the sorted column
+                            $(api.column(sortedColumnIndex).header()).addClass('sorted-column'); // Add class to the sorted column header
+                            // Update all cells in the sorted column to match the theme
+                            api.rows().every(function() {
+                                const row = this.node();
+                                $(row).find('td').eq(sortedColumnIndex).css({
+                                    backgroundColor: 'var(--background-color)', // Match the system theme background color
+                                    color: 'var(--text-color)' // Match text color
+                                });
+                            });
+                        }
                     });
                     tableInitialized = true;
                 } else {
@@ -822,6 +868,16 @@ function processFile() {
             } else {
                 $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
             }
+
+            // Apply the theme colors to the newly populated rows
+            const api = $('#dataTable').DataTable();
+            api.rows().every(function() {
+                const row = this.node();
+                $(row).find('td').css({
+                    backgroundColor: 'var(--background-color)', // Match the system theme background color
+                    color: 'var(--text-color)' // Match text color
+                });
+            });
 
             saveState();
 
@@ -1083,9 +1139,9 @@ function exportChannelHookup() {
     function createHeader(pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0;">Channel Hookup ${showName}</h1>
-                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
-                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+                <h1 style="margin: 0; color: black;">Channel Hookup ${showName}</h1>
+                <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
             </div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
                 <span style="width: 12%;">Channel</span>
@@ -1104,7 +1160,7 @@ function exportChannelHookup() {
 
     function createFooter(pageNumber) {
         return `
-            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
                 <p>This was generated using Light Rewrite Web ${version}</p>
             </div>
         `;
@@ -1120,6 +1176,7 @@ function exportChannelHookup() {
     const pdfDiv = document.createElement('div');
     pdfDiv.style.width = '100%';
     pdfDiv.style.fontSize = '12px';
+    pdfDiv.style.color = 'black'; // Ensure text is always black
 
     const instrumentsPerPage = 20;
     let pageNumber = 1;
@@ -1134,7 +1191,9 @@ function exportChannelHookup() {
         });
 
         const footerContent = createFooter(pageNumber);
-        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+        pdfContent += footerContent; // Add footer content to the last page
+
+        pdfDiv.innerHTML += headerContent + pdfContent;
 
         if (i + instrumentsPerPage < data.length) {
             pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
@@ -1179,11 +1238,11 @@ function exportInstrumentSchedule() {
     function createHeader(position, pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0;">Instrument Schedule</h1>
-                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
-                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+                <h1 style="margin: 0; color: black;">Instrument Schedule</h1>
+                <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
             </div>
-            <div style="text-align: left; font-size: 15px; font-weight: bold">Position: ${position}</div>
+            <div style="text-align: left; font-size: 15px; font-weight: bold; color: black;">Position: ${position}</div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%; margin-top: 10px;">
                 <span style="width: 12%;">Unit</span>
                 <span style="width: 12%;">Purpose</span>
@@ -1200,7 +1259,7 @@ function exportInstrumentSchedule() {
 
     function createFooter(pageNumber) {
         return `
-            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
                 <p>This was generated using Light Rewrite Web ${version}</p>
             </div>
         `;
@@ -1224,6 +1283,7 @@ function exportInstrumentSchedule() {
     const pdfDiv = document.createElement('div');
     pdfDiv.style.width = '100%';
     pdfDiv.style.fontSize = '12px';
+    pdfDiv.style.color = 'black'; // Ensure text is always black
 
     const instrumentsPerPage = 14; // Limit to 15 instruments per page
     let pageNumber = 1;
@@ -1282,9 +1342,9 @@ function exportColorCount() {
     function createHeader(pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0;">Color Count ${showName}</h1>
-                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
-                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+                <h1 style="margin: 0; color: black;">Color Count ${showName}</h1>
+                <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
             </div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
                 <span style="width: 45%;">Color</span>
@@ -1297,7 +1357,7 @@ function exportColorCount() {
 
     function createFooter(pageNumber) {
         return `
-            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
                 <p>This was generated using Light Rewrite Web ${version}</p>
             </div>
         `;
@@ -1352,6 +1412,7 @@ function exportColorCount() {
     const pdfDiv = document.createElement('div');
     pdfDiv.style.width = '100%';
     pdfDiv.style.fontSize = '12px';
+    pdfDiv.style.color = 'black'; // Ensure text is always black
 
     const itemsPerPage = 20;
     let pageNumber = 1;
@@ -1395,9 +1456,9 @@ function exportInstrumentTypeCount() {
     function createHeader(pageNumber) {
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0;">Instrument Type Count ${showName}</h1>
-                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
-                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+                <h1 style="margin: 0; color: black;">Instrument Type Count ${showName}</h1>
+                <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
             </div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
                 <span style="width: 80%;">Instrument Type</span>
@@ -1409,7 +1470,7 @@ function exportInstrumentTypeCount() {
 
     function createFooter(pageNumber) {
         return `
-            <div style="text-align: center; font-size: 8px; margin-top: 20px;">
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
                 <p>This was generated using Light Rewrite Web ${version}</p>
             </div>
         `;
@@ -2075,6 +2136,7 @@ function processCSVFile() {
             }
 
             saveState();
+            window.location.reload();
 
         } catch (error) {
             console.error("Error parsing CSV file:", error);
@@ -2181,6 +2243,7 @@ function processXLSXFile() {
             }
 
             saveState();
+            window.location.reload();
 
         } catch (error) {
             console.error("Error parsing Excel file:", error);
