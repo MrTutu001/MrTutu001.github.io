@@ -633,6 +633,7 @@
             <th>Address</th>
             <th>Color</th>
             <th>Gobo</th>
+            <th>Wattage</th> <!-- Added Wattage header -->
             <th>Accessories</th>
         </tr>
     </thead>
@@ -642,7 +643,7 @@
 
 <script>
 //Version
-const version = 'v1_8_3'
+const version = 'v1_8_5'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -655,7 +656,7 @@ let headElectrician = '';
 // Add this at the top of your script section, with other global variables
 let workNotesContainer = null;
 let workNotesData = []; // This will store our work notes
-const workNoteHeaders = ['Channel', 'Position', 'Unit', 'Purpose', 'Type', 'Dimmer', 'Address', 'Color', 'Gobo', 'Accessories', 'Notes', 'Delete'];
+const workNoteHeaders = ['Channel', 'Position', 'Unit', 'Purpose', 'Type', 'Dimmer', 'Address', 'Color', 'Gobo', 'Wattage', 'Accessories', 'Notes', 'Delete'];
 
 // Add these functions to handle saving/loading state
 function saveState() {
@@ -711,6 +712,7 @@ function loadState() {
                         <td>${item.address || item.absolute_address || ''}</td>
                         <td>${item.color || ''}</td>
                         <td>${item.gobo || item.template || ''}</td>
+                        <td>${item.wattage || ''}</td> <!-- Added Wattage data -->
                         <td>${accessoriesText}</td>
                     </tr>`;
                     tableBody.innerHTML += row;
@@ -836,6 +838,7 @@ function processFile() {
                     <td>${fullData.absolute_address || ''}</td>
                     <td>${fullData.color || ''}</td>
                     <td>${fullData.template || ''}</td>
+                    <td>${fullData.wattage || ''}</td> <!-- Added Wattage data -->
                     <td>${accessories.map(a => a.inst_type || '').join(', ')}</td>
                 </tr>`;
                 tableBody.innerHTML += row;
@@ -1044,6 +1047,7 @@ function updateTableWithFilteredData(filteredData, searchCriteria) {
             <td>${item.address || item.absolute_address || ''}</td>
             <td>${item.color || ''}</td>
             <td>${item.gobo || item.template || ''}</td>
+            <td>${item.wattage || ''}</td> <!-- Added Wattage data -->
             <td>${accessoriesText}</td>
         </tr>`;
         tableBody.innerHTML += row;
@@ -1101,6 +1105,7 @@ function resetSearch() {
             <td>${item.address || item.absolute_address || ''}</td>
             <td>${item.color || ''}</td>
             <td>${item.gobo || item.template || ''}</td>
+            <td>${item.wattage || ''}</td> <!-- Added Wattage data -->
             <td>${accessoriesText}</td>
         </tr>`;
         tableBody.innerHTML += row;
@@ -1131,6 +1136,7 @@ function exportChannelHookup() {
             <span style="width: 12%;">${instrument.address || instrument.absolute_address || ''}</span>
             <span style="width: 12%;">${instrument.color || ''}</span>
             <span style="width: 12%;">${instrument.gobo || instrument.template || ''}</span>
+            <span style="width: 12%;">${instrument.wattage || ''}</span> <!-- Added Wattage data -->
             <span style="width: 12%;">${accessoriesText}</span>
         </div>
         <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
@@ -1152,6 +1158,7 @@ function exportChannelHookup() {
                 <span style="width: 12%;">Address</span>
                 <span style="width: 12%;">Color</span>
                 <span style="width: 12%;">Gobo</span>
+                <span style="width: 12%;">Wattage</span> <!-- Added Wattage header -->
                 <span style="width: 12%;">Accessories</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
@@ -1178,7 +1185,7 @@ function exportChannelHookup() {
     pdfDiv.style.fontSize = '12px';
     pdfDiv.style.color = 'black'; // Ensure text is always black
 
-    const instrumentsPerPage = 20;
+    const instrumentsPerPage = 14;
     let pageNumber = 1;
 
     for (let i = 0; i < data.length; i += instrumentsPerPage) {
@@ -1230,6 +1237,7 @@ function exportInstrumentSchedule() {
             <span style="width: 12%;">${instrument.address || instrument.absolute_address || ''}</span>
             <span style="width: 12%;">${instrument.color || ''}</span>
             <span style="width: 12%;">${instrument.gobo || instrument.template || ''}</span>
+            <span style="width: 12%;">${instrument.wattage || ''}</span> <!-- Added Wattage data -->
             <span style="width: 12%;">${accessoriesText}</span>
         </div>
         <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
@@ -1251,6 +1259,7 @@ function exportInstrumentSchedule() {
                 <span style="width: 12%;">Address</span>
                 <span style="width: 12%;">Color</span>
                 <span style="width: 12%;">Gobo</span>
+                <span style="width: 12%;">Wattage</span> <!-- Added Wattage header -->
                 <span style="width: 12%;">Accessories</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
@@ -1290,8 +1299,20 @@ function exportInstrumentSchedule() {
     let lastPosition = ''; // Track the last position to detect changes
     let instrumentsInPosition = 0; // Track the number of instruments on the current page
 
+    // Check for instruments with empty position and warn the user
+    const instrumentsWithEmptyPosition = data.filter(instrument => !instrument.position);
+    if (instrumentsWithEmptyPosition.length > 0) {
+        const response = confirm(`Warning: ${instrumentsWithEmptyPosition.length} instruments with empty position will not be included in the PDF. Proceed?`);
+        if (!response) {
+            return; // Cancel the function if the user chooses not to proceed
+        }
+    }
+
     for (let i = 0; i < data.length; i++) {
         const instrument = data[i];
+        if (!instrument.position) {
+            continue; // Skip instruments with unknown position
+        }
 
         // If the position is different, or we have reached the instrument limit per page, 
         // add a page break and reset the instrument count
@@ -1387,12 +1408,14 @@ function exportColorCount() {
     // Flatten the colorCount object into an array for easy PDF generation
     const colorReport = [];
     for (const color in colorCount) {
-        for (const instType in colorCount[color]) {
-            colorReport.push({
-                color: color,
-                instType: instType,
-                count: colorCount[color][instType]
-            });
+        if (color !== "Unknown") { // Exclude "Unknown" color
+            for (const instType in colorCount[color]) {
+                colorReport.push({
+                    color: color,
+                    instType: instType,
+                    count: colorCount[color][instType]
+                });
+            }
         }
     }
 
@@ -1494,11 +1517,13 @@ function exportInstrumentTypeCount() {
 
     // Convert the typeCount object into an array for easy PDF generation
     const typeReport = [];
+    let totalInstrumentCount = 0; // Initialize total instrument count
     for (const instType in typeCount) {
         typeReport.push({
             instType: instType,
             count: typeCount[instType]
         });
+        totalInstrumentCount += typeCount[instType]; // Accumulate total instrument count
     }
 
     // Sort the report alphabetically by instrument type
@@ -1528,6 +1553,12 @@ function exportInstrumentTypeCount() {
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
         });
+
+        // Add total instrument count as the last row
+        pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%; font-weight: bold;">
+                <span style="width: 80%;">Total Instruments</span>
+                <span style="width: 20%;">${totalInstrumentCount}</span>
+            </div>`;
 
         const footerContent = createFooter(pageNumber);
         pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
@@ -1609,7 +1640,7 @@ function populateAddressFromDimmer() {
 
 function exportTableToCSV() {
     // Initialize CSV content with headers
-    let csvContent = "Channel,Position,Unit,Purpose,Type,Dimmer,Address,Color,Gobo,Accessories\n";
+    let csvContent = "Channel,Position,Unit,Purpose,Type,Dimmer,Address,Color,Wattage,Gobo,Accessories\n";
 
     // Iterate through each instrument in originalData
     for (const instrument of originalData) {
@@ -1623,6 +1654,7 @@ function exportTableToCSV() {
             instrument.address || instrument.absolute_address || '',
             instrument.color || '',
             instrument.gobo || instrument.template || '',
+            instrument.wattage || '', // Added Wattage data
         ];
 
         // Handle accessories with more flexibility
@@ -1811,6 +1843,7 @@ function createInputRow(table) {
                 address: instrument.address || instrument.absolute_address || '',
                 color: instrument.color || '',
                 gobo: instrument.gobo || instrument.template || '',
+                wattage: instrument.wattage || '', // Added Wattage data
                 accessories: Array.isArray(instrument.accessories) 
                     ? instrument.accessories.map(acc => acc.type || acc.inst_type || "Unknown").join("; ")
                     : instrument.accessories || '',
@@ -2102,6 +2135,7 @@ function processCSVFile() {
                     <td>${fullData.address || ''}</td>
                     <td>${fullData.color || ''}</td>
                     <td>${fullData.gobo || ''}</td>
+                    <td>${fullData.wattage || ''}</td> <!-- Added Wattage data -->
                     <td>${accessories.map(a => a.type || '').join(', ')}</td>
                 </tr>`;
                 tableBody.innerHTML += row;
@@ -2209,6 +2243,7 @@ function processXLSXFile() {
                     <td>${fullData.address || ''}</td>
                     <td>${fullData.color || ''}</td>
                     <td>${fullData.gobo || ''}</td>
+                    <td>${fullData.wattage || ''}</td> <!-- Added Wattage data -->
                     <td>${accessories.map(a => a.type || '').join(', ')}</td>
                 </tr>`;
                 tableBody.innerHTML += row;
@@ -2559,6 +2594,7 @@ function displayDifferences(differences) {
                     <th>Address</th>
                     <th>Color</th>
                     <th>Gobo</th>
+                    <th>Wattage</th> <!-- Added Wattage header -->
                     <th>Accessories</th>
                 </tr>
                 ${differences.original.map((row, index) => `
@@ -2572,6 +2608,7 @@ function displayDifferences(differences) {
                         <td>${row.address || ''}</td>
                         <td>${row.color || ''}</td>
                         <td>${row.gobo || ''}</td>
+                        <td>${row.wattage || ''}</td> <!-- Added Wattage data -->
                         <td>${Array.isArray(row.accessories) ? 
                             row.accessories.map(a => a.type).join(', ') : 
                             row.accessories || ''}</td>
@@ -2593,6 +2630,7 @@ function displayDifferences(differences) {
                     <th>Address</th>
                     <th>Color</th>
                     <th>Gobo</th>
+                    <th>Wattage</th> <!-- Added Wattage header -->
                     <th>Accessories</th>
                 </tr>
                 ${differences.comparison.map((row, index) => `
@@ -2606,6 +2644,7 @@ function displayDifferences(differences) {
                         <td>${row.address || ''}</td>
                         <td>${row.color || ''}</td>
                         <td>${row.gobo || ''}</td>
+                        <td>${row.wattage || ''}</td> <!-- Added Wattage data -->
                         <td>${row.accessories || ''}</td>
                     </tr>
                 `).join('')}
@@ -2707,6 +2746,7 @@ function updateOriginalTable() {
             <td>${row.address || ''}</td>
             <td>${row.color || ''}</td>
             <td>${row.gobo || ''}</td>
+            <td>${row.wattage || ''}</td> <!-- Added Wattage data -->
             <td>${Array.isArray(row.accessories) ? 
                 row.accessories.map(a => a.type).join(', ') : 
                 row.accessories || ''}</td>
@@ -2895,7 +2935,7 @@ function showAllColumnsView() {
         // Create checkbox
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = true;
+        checkbox.checked = false; // Start with all checkboxes unchecked
         checkbox.dataset.header = header;
         checkbox.style.marginRight = '10px';
         checkbox.style.cursor = 'pointer';
@@ -3384,7 +3424,9 @@ function checkDimmerWattage() {
         if (!dimmer || dimmer === "0") return; // Skip instruments with no dimmer
 
         // Get wattage directly from the instrument data
-        const wattage = parseInt(instrument.wattage) || 0;
+        let wattage = instrument.wattage;
+        wattage = wattage.replace(/w/i, ''); // Remove 'w' or 'W' from the end or anywhere in the string
+        const parsedWattage = parseInt(wattage) || 0;
 
         // Add instrument to dimmer map
         if (!dimmerMap.has(dimmer)) {
@@ -3393,7 +3435,7 @@ function checkDimmerWattage() {
         dimmerMap.get(dimmer).push({
             channel: instrument.channel || instrument.chan,
             type: instrument.type || instrument.inst_type,
-            wattage: wattage,
+            wattage: parsedWattage,
             position: instrument.position || instrument.pos,
             unit: instrument.unit || instrument.unit_number
         });
