@@ -503,7 +503,7 @@
             </div>
             <div class="tools">
                 <a href="#" class="check-trigger">Error Check -></a>
-                <div class="dropdown-content" style="left: 100%; top: 66%; display: none;">
+                <div class="dropdown-content" style="left: 100%; top: 50%; display: none;">
                     <div class="tools">
                         <a href="#" onclick="checkAddresses()">Addresses</a>
                     </div>
@@ -531,6 +531,37 @@
                     });
 
                     errorCheckDropdown.addEventListener('mouseleave', function() {
+                        this.style.display = 'none';
+                    });
+                </script>
+            </div>
+            <div class="tools">
+                <a href="#" class="quick-count-trigger">Quick Count -></a>
+                <div class="dropdown-content" style="left: 100%; top: 75%; display: none;">
+                    <div class="tools">
+                        <a href="#" onclick="quickColor()">Color</a>
+                    </div>
+                    <div class="tools">
+                        <a href="#" onclick="quickInstrument()">Instruments</a>
+                    </div>
+                </div>
+                <script>
+                    const quickCountTrigger = document.querySelector('.quick-count-trigger');
+                    const quickCountDropdown = quickCountTrigger.nextElementSibling;
+
+                    quickCountTrigger.addEventListener('mouseover', function() {
+                        quickCountDropdown.style.display = 'block';
+                    });
+
+                    quickCountTrigger.addEventListener('mouseleave', function() {
+                        quickCountDropdown.style.display = 'none';
+                    });
+
+                    quickCountDropdown.addEventListener('mouseover', function() {
+                        this.style.display = 'block';
+                    });
+
+                    quickCountDropdown.addEventListener('mouseleave', function() {
                         this.style.display = 'none';
                     });
                 </script>
@@ -643,7 +674,7 @@
 
 <script>
 //Version
-const version = 'v1_8_5'
+const version = 'v1_9_1'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -3559,6 +3590,226 @@ function getSystemColorMode() {
     const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
     return isDarkMode ? "dark" : "light";
 }
+
+function quickColor() {
+    const colorCounts = {};
+    originalData.forEach((instrument) => {
+        const instrumentType = instrument.type || instrument.inst_type;
+        const color = instrument.color;
+        if (!colorCounts[color]) {
+            colorCounts[color] = {};
+        }
+        if (!colorCounts[color][instrumentType]) {
+            colorCounts[color][instrumentType] = 0;
+        }
+        colorCounts[color][instrumentType]++;
+    });
+
+    // Sort colors before creating the table
+    const sortedColors = Object.keys(colorCounts).sort();
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-height: 80%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: auto;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: var(--background-color);
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        box-shadow: 0px 8px 16px 0px var(--menu-shadow);
+        max-height: 100%;
+        overflow: auto;
+        padding-top: 300px; /* Adjusted to ensure the top of the table is not cut off */
+    `;
+
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        color: var(--text-color);
+    `;
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        border-collapse: collapse;
+        width: 100%;
+    `;
+
+    const thead = document.createElement('thead');
+    const tr = document.createElement('tr');
+    const th1 = document.createElement('th');
+    th1.innerHTML = 'Color';
+    const th2 = document.createElement('th');
+    th2.innerHTML = 'Instrument Type';
+    const th3 = document.createElement('th');
+    th3.innerHTML = 'Count';
+    tr.appendChild(th1);
+    tr.appendChild(th2);
+    tr.appendChild(th3);
+    thead.appendChild(tr);
+
+    const tbody = document.createElement('tbody');
+    sortedColors.forEach((color) => {
+        Object.keys(colorCounts[color]).forEach((instrumentType) => {
+            const tr = document.createElement('tr');
+            const td1 = document.createElement('td');
+            td1.innerHTML = color;
+            const td2 = document.createElement('td');
+            td2.innerHTML = instrumentType;
+            const td3 = document.createElement('td');
+            td3.innerHTML = colorCounts[color][instrumentType];
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            tbody.appendChild(tr);
+        });
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    content.appendChild(closeButton);
+    content.appendChild(table);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+function quickInstrument() { // Duplicate of quickColor for counting Instrument Types
+    const typeCounts = {};
+    originalData.forEach((instrument) => {
+        const instrumentType = instrument.type || instrument.inst_type;
+        if (!typeCounts[instrumentType]) {
+            typeCounts[instrumentType] = 0;
+        }
+        typeCounts[instrumentType]++;
+    });
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-height: 80%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: auto;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: var(--background-color);
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        box-shadow: 0px 8px 16px 0px var(--menu-shadow);
+        max-height: 100%;
+        overflow: auto;
+    `;
+
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        color: var(--text-color);
+    `;
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    const table = document.createElement('table');
+    table.style.cssText = `
+        border-collapse: collapse;
+        width: 100%;
+    `;
+
+    const thead = document.createElement('thead');
+    const tr = document.createElement('tr');
+    const th1 = document.createElement('th');
+    th1.innerHTML = 'Instrument Type';
+    const th2 = document.createElement('th');
+    th2.innerHTML = 'Count';
+    tr.appendChild(th1);
+    tr.appendChild(th2);
+    thead.appendChild(tr);
+
+    const tbody = document.createElement('tbody');
+    let totalInstruments = 0;
+    Object.keys(typeCounts).forEach((instrumentType) => {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.innerHTML = instrumentType;
+        const td2 = document.createElement('td');
+        td2.innerHTML = typeCounts[instrumentType];
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        tbody.appendChild(tr);
+        totalInstruments += typeCounts[instrumentType];
+    });
+
+    // Add a total instruments row
+    const totalRow = document.createElement('tr');
+    const totalTd1 = document.createElement('td');
+    totalTd1.innerHTML = 'Total Instruments';
+    const totalTd2 = document.createElement('td');
+    totalTd2.innerHTML = totalInstruments;
+    totalRow.appendChild(totalTd1);
+    totalRow.appendChild(totalTd2);
+    tbody.appendChild(totalRow);
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    content.appendChild(closeButton);
+    content.appendChild(table);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+
+
+
 
 </script>
 
