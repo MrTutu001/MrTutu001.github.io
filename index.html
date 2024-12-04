@@ -76,7 +76,8 @@
             background-color: var(--background-color);
             color: var(--text-color);
             font-family: Arial, sans-serif; 
-            margin: 20px; 
+            margin: 20px;
+            cursor: url('cursor.png'), auto; /* Set custom cursor */ 
         }
         h1 {
             display: flex;
@@ -641,6 +642,18 @@
             </div>
         </div>
     </div>
+
+    <div class="dropdown">
+        <button style="border: 1px solid var(--border-color);">Help</button>
+        <div class="dropdown-content">
+            <div class="help">
+                <a href="https://github.com/MrTutu001/MrTutu001.github.io" target="_blank">GitHub Page</a>
+            </div>
+            <div class="help">
+                <a href="https://github.com/MrTutu001/MrTutu001.github.io/issues" target="_blank">Submit Issue</a>
+            </div>
+        </div>
+    </div>
     
 </div>
 
@@ -765,6 +778,7 @@ function loadState() {
                         columnDefs: [{
                             targets: 1,
                             orderData: [1, 2],
+                            type: 'num' // Specify that this column should be treated as numeric
                         }],
                         createdRow: function(row, data, dataIndex) {
                             const api = this.api();
@@ -885,6 +899,7 @@ function processFile() {
             document.getElementById('instructionBox4').style.display = 'none';
             document.getElementById('searchInfo').style.display = 'none';
 
+            // Initialize DataTable with numeric sorting
             if (!tableInitialized) {
                 $('#dataTable').DataTable({
                     searching: false,
@@ -893,8 +908,9 @@ function processFile() {
                     order: [],
                     columnDefs: [
                         {
-                            targets: 1,
+                            targets: 1, // Adjust this index to the column you want to sort numerically
                             orderData: [1, 2],
+                            type: 'num' // Specify that this column should be treated as numeric
                         }
                     ]
                 });
@@ -2290,16 +2306,17 @@ function processCSVFile() {
             document.getElementById('instructionBox4').style.display = 'none';
             document.getElementById('searchInfo').style.display = 'none';
 
-            // Initialize or update DataTable
+            // Initialize or update DataTable with sorting enabled for the channel column
             if (!tableInitialized) {
                 $('#dataTable').DataTable({
                     searching: false,
                     paging: false,
                     info: false,
-                    order: [],
+                    order: [[0, 'asc']], // Default sorting on channel column
                     columnDefs: [{
                         targets: 1,
                         orderData: [1, 2],
+                        type: 'num' // Specify that this column should be treated as numeric
                     }]
                 });
                 tableInitialized = true;
@@ -2370,6 +2387,9 @@ function processXLSXFile() {
                     })) : [];
                 fullData.accessories = accessories;
 
+                // Convert channel to number for sorting
+                fullData.channel = parseInt(fullData.channel, 10) || 0;
+
                 // Create table row with only expected columns
                 const row = `<tr> 
                     <td>${fullData.channel || ''}</td>
@@ -2398,16 +2418,17 @@ function processXLSXFile() {
             document.getElementById('instructionBox4').style.display = 'none';
             document.getElementById('searchInfo').style.display = 'none';
 
-            // Initialize or update DataTable
+            // Initialize or update DataTable with sorting enabled for the channel column
             if (!tableInitialized) {
                 $('#dataTable').DataTable({
                     searching: false,
                     paging: false,
                     info: false,
-                    order: [],
+                    order: [[0, 'asc']], // Default sorting on channel column
                     columnDefs: [{
-                        targets: 1,
-                        orderData: [1, 2],
+                        targets: 0, // Channel column
+                        orderData: [0], // Use the first column for sorting
+                        type: 'num' // Specify that this column should be treated as numeric
                     }]
                 });
                 tableInitialized = true;
