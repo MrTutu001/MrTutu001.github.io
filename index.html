@@ -674,7 +674,7 @@
 
 <script>
 //Version
-const version = 'v1_9_1'
+const version = 'v1_9_2'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1158,12 +1158,16 @@ function exportChannelHookup() {
                 ? instrument.accessories 
                 : "";
 
+        // Extract dimmer information
+        const dimmerText = instrument.dimmer || instrument.dimmer_number || '';
+
         return `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
             <span style="width: 12%;">${instrument.channel || instrument.chan || ''}</span>
             <span style="width: 12%;">${instrument.position || instrument.pos || ''}</span>
             <span style="width: 12%;">${instrument.unit || instrument.unit_number || ''}</span>
             <span style="width: 12%;">${instrument.purpose || ''}</span>
             <span style="width: 12%;">${instrument.type || instrument.inst_type || ''}</span>
+            <span style="width: 12%;">${dimmerText}</span> <!-- Added Dimmer data -->
             <span style="width: 12%;">${instrument.address || instrument.absolute_address || ''}</span>
             <span style="width: 12%;">${instrument.color || ''}</span>
             <span style="width: 12%;">${instrument.gobo || instrument.template || ''}</span>
@@ -1186,6 +1190,7 @@ function exportChannelHookup() {
                 <span style="width: 12%;">Unit</span>
                 <span style="width: 12%;">Purpose</span>
                 <span style="width: 12%;">Type</span>
+                <span style="width: 12%;">Dimmer</span> <!-- Added Dimmer header -->
                 <span style="width: 12%;">Address</span>
                 <span style="width: 12%;">Color</span>
                 <span style="width: 12%;">Gobo</span>
@@ -1204,7 +1209,11 @@ function exportChannelHookup() {
         `;
     }
 
-    const data = originalData.sort((a, b) => parseInt(a.channel) - parseInt(b.channel));
+    const data = originalData.sort((a, b) => {
+        const channelA = parseInt(a.channel) || 0;
+        const channelB = parseInt(b.channel) || 0;
+        return channelA - channelB;
+    }).filter(item => item.channel || item.chan); // Filter out items without a channel value
 
     if (data.length === 0) {
         alert('No instrument data available for export.');
@@ -1240,6 +1249,34 @@ function exportChannelHookup() {
         pageNumber++;
     }
 
+    // Check if any channels were excluded
+    const totalChannels = originalData.length;
+    const filteredChannels = data.length;
+    const excludedChannels = totalChannels - filteredChannels;
+    if (excludedChannels > 0) {
+        const confirmation = confirm(`Warning: ${excludedChannels} instruments will not be included due to missing channels. Do you want to continue?`);
+        if (!confirmation) {
+            return;
+        }
+    }
+
+    // Display a message to the user that the file is processing
+    const processingMessage = document.createElement('div');
+    processingMessage.style.position = 'fixed';
+    processingMessage.style.top = '50%';
+    processingMessage.style.left = '50%';
+    processingMessage.style.transform = 'translate(-50%, -50%)';
+    processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    processingMessage.style.color = 'white';
+    processingMessage.style.padding = '20px';
+    processingMessage.style.borderRadius = '10px';
+    processingMessage.style.zIndex = '9999';
+    processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+    document.body.appendChild(processingMessage);
+    setTimeout(() => {
+        document.body.removeChild(processingMessage);
+    }, 2000);
+
     const pdfOptions = {
         margin:       0.5,
         filename:     `${uploadedFileName}_channel_hookup.pdf`,
@@ -1260,11 +1297,15 @@ function exportInstrumentSchedule() {
                 ? instrument.accessories 
                 : "";
 
+        // Extract dimmer information
+        const dimmerText = instrument.dimmer || instrument.dimmer_number || '';
+
         return `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
             <span style="width: 12%;">${instrument.unit || instrument.unit_number || ''}</span>
             <span style="width: 12%;">${instrument.purpose || ''}</span>
             <span style="width: 12%;">${instrument.type || instrument.inst_type || ''}</span>
             <span style="width: 12%;">${instrument.channel || instrument.chan || ''}</span>
+            <span style="width: 12%;">${dimmerText}</span> <!-- Added Dimmer data -->
             <span style="width: 12%;">${instrument.address || instrument.absolute_address || ''}</span>
             <span style="width: 12%;">${instrument.color || ''}</span>
             <span style="width: 12%;">${instrument.gobo || instrument.template || ''}</span>
@@ -1287,6 +1328,7 @@ function exportInstrumentSchedule() {
                 <span style="width: 12%;">Purpose</span>
                 <span style="width: 12%;">Type</span>
                 <span style="width: 12%;">Channel</span>
+                <span style="width: 12%;">Dimmer</span> <!-- Added Dimmer header -->
                 <span style="width: 12%;">Address</span>
                 <span style="width: 12%;">Color</span>
                 <span style="width: 12%;">Gobo</span>
@@ -1308,9 +1350,23 @@ function exportInstrumentSchedule() {
     const data = originalData.sort((a, b) => {
         if (a.position === b.position) {
             // Handle cases where unit might be in either unit or unit_number field
-            const unitA = parseInt(a.unit || a.unit_number || '0');
-            const unitB = parseInt(b.unit || b.unit_number || '0'); 
-            return unitA - unitB; // Ascending order
+            const unitA = a.unit || a.unit_number || '0';
+            const unitB = b.unit || b.unit_number || '0'; 
+            // Separate numeric and alphabetic parts
+            const regex = /(\d+)(\D*)/; // Match numbers followed by letters
+            const matchA = unitA.match(regex);
+            const matchB = unitB.match(regex);
+            const numA = matchA ? parseInt(matchA[1], 10) : 0; // Numeric part
+            const numB = matchB ? parseInt(matchB[1], 10) : 0; // Numeric part
+            const alphaA = matchA ? matchA[2] : ''; // Alphabetic part
+            const alphaB = matchB ? matchB[2] : ''; // Alphabetic part
+            
+            // First compare numerically
+            if (numA !== numB) {
+                return numA - numB; // Sort numerically
+            }
+            // If numbers are the same, sort alphabetically
+            return alphaA.localeCompare(alphaB);
         }
         return (a.position || '').localeCompare(b.position || '');
     });
@@ -1378,6 +1434,23 @@ function exportInstrumentSchedule() {
             pdfDiv.innerHTML += footerContent;
         }
     }
+
+    // Display a message to the user that the file is processing
+    const processingMessage = document.createElement('div');
+    processingMessage.style.position = 'fixed';
+    processingMessage.style.top = '50%';
+    processingMessage.style.left = '50%';
+    processingMessage.style.transform = 'translate(-50%, -50%)';
+    processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    processingMessage.style.color = 'white';
+    processingMessage.style.padding = '20px';
+    processingMessage.style.borderRadius = '10px';
+    processingMessage.style.zIndex = '9999';
+    processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+    document.body.appendChild(processingMessage);
+    setTimeout(() => {
+        document.body.removeChild(processingMessage);
+    }, 2000);
 
     const pdfOptions = {
         margin:       0.5,
@@ -1495,6 +1568,23 @@ function exportColorCount() {
         pageNumber++;
     }
 
+    // Display a message to the user that the file is processing
+    const processingMessage = document.createElement('div');
+    processingMessage.style.position = 'fixed';
+    processingMessage.style.top = '50%';
+    processingMessage.style.left = '50%';
+    processingMessage.style.transform = 'translate(-50%, -50%)';
+    processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    processingMessage.style.color = 'white';
+    processingMessage.style.padding = '20px';
+    processingMessage.style.borderRadius = '10px';
+    processingMessage.style.zIndex = '9999';
+    processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+    document.body.appendChild(processingMessage);
+    setTimeout(() => {
+        document.body.removeChild(processingMessage);
+    }, 2000);
+
     const pdfOptions = {
         margin:       0.5,
         filename:     `${uploadedFileName}_color_count.pdf`,
@@ -1600,6 +1690,23 @@ function exportInstrumentTypeCount() {
 
         pageNumber++;
     }
+
+    // Display a message to the user that the file is processing
+    const processingMessage = document.createElement('div');
+    processingMessage.style.position = 'fixed';
+    processingMessage.style.top = '50%';
+    processingMessage.style.left = '50%';
+    processingMessage.style.transform = 'translate(-50%, -50%)';
+    processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    processingMessage.style.color = 'white';
+    processingMessage.style.padding = '20px';
+    processingMessage.style.borderRadius = '10px';
+    processingMessage.style.zIndex = '9999';
+    processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+    document.body.appendChild(processingMessage);
+    setTimeout(() => {
+        document.body.removeChild(processingMessage);
+    }, 2000);
 
     const pdfOptions = {
         margin:       0.5,
