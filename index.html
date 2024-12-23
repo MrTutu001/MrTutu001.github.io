@@ -514,6 +514,9 @@
                     <div class="tools">
                         <a href="#" onclick="checkDimmerWattage()">Dimmer Load</a>
                     </div>
+                    <div class="tools">
+                        <a href="#" onclick="checkChannelWattage()">Channel Load</a>
+                    </div>
                 </div>
                 <script>
                     const checkTrigger = document.querySelector('.check-trigger');
@@ -687,7 +690,7 @@
 
 <script>
 //Version
-const version = 'v1_9_2'
+const version = 'v1_9_4'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1196,7 +1199,7 @@ function exportChannelHookup() {
     function createHeader(pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0; color: black;">Channel Hookup ${showName}</h1>
+                <h1 style="margin: 0; color: black;">Channel Hookup - ${showName}</h1>
                 <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
                 <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
             </div>
@@ -1334,7 +1337,7 @@ function exportInstrumentSchedule() {
     function createHeader(position, pageNumber) { //Data Point Add
         return `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
-                <h1 style="margin: 0; color: black;">Instrument Schedule</h1>
+                <h1 style="margin: 0; color: black;">Instrument Schedule - ${showName}</h1>
                 <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
                 <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
             </div>
@@ -3710,6 +3713,180 @@ function checkDimmerWattage() {
     });
 
     content.insertBefore(closeButton, content.firstChild);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+}
+
+function checkChannelWattage() {
+    // Create a map to store channel information
+    const channelMap = new Map();
+
+    // Collect all instruments grouped by channel
+    originalData.forEach(instrument => {
+        const channel = instrument.channel || instrument.chan;
+        if (!channel || channel === "0") return; // Skip instruments with no channel
+
+        // Get wattage directly from the instrument data
+        let wattage = instrument.wattage;
+        wattage = wattage.replace(/w/i, ''); // Remove 'w' or 'W' from the end or anywhere in the string
+        const parsedWattage = parseInt(wattage) || 0;
+
+        // Add instrument to channel map
+        if (!channelMap.has(channel)) {
+            channelMap.set(channel, []);
+        }
+        channelMap.get(channel).push({
+            dimmer: instrument.dimmer,
+            type: instrument.type || instrument.inst_type,
+            wattage: parsedWattage,
+            position: instrument.position || instrument.pos,
+            unit: instrument.unit || instrument.unit_number
+        });
+    });
+
+    // Create modal for display
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--modal-overlay);
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        overflow-y: auto;
+        z-index: 1000;
+    `;
+
+    // Create content container
+    const content = document.createElement('div');
+    content.style.cssText = `
+        background: var(--modal-bg);
+        color: var(--text-color);
+        padding: 20px;
+        margin: 20px;
+        border-radius: 8px;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+    `;
+
+    // Sort channels numerically
+    const sortedChannels = Array.from(channelMap.keys()).sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Create the content HTML
+    content.innerHTML = `
+        <style>
+            .channel-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 20px; 
+            }
+            .channel-table th, .channel-table td { 
+                border: 1px solid var(--border-color); 
+                padding: 8px; 
+                text-align: left; 
+            }
+            .channel-table th { 
+                background-color: var(--header-bg);
+                color: var(--text-color);
+                position: sticky;
+                top: 40px;
+                z-index: 1;
+            }
+            .warning {
+                background-color: var(--warning-bg);
+            }
+            h1 { 
+                color: var(--text-color);
+                margin-right: 40px; 
+            }
+        </style>
+        <h1>Channel Load Analysis</h1>
+        <p>Total number of dimmers used: ${sortedChannels.length}</p>
+        <table class="channel-table">
+            <tr>
+                <th>Channel</th>
+                <th>Total Load</th>
+                <th>Instruments</th>
+            </tr>
+            ${sortedChannels.map(channel => {
+                const instruments = channelMap.get(channel);
+                const totalWattage = instruments.reduce((sum, inst) => sum + inst.wattage, 0);
+                const isOverloaded = totalWattage > 2400; // Standard dimmer capacity
+
+                return `
+                    <tr class="${isOverloaded ? 'warning' : ''}">
+                        <td>${channel}</td>
+                        <td>${totalWattage}W ${isOverloaded ? '⚠️' : ''}</td>
+                        <td>${instruments.map(inst => 
+                            `Dimmer ${inst.dimmer} (${inst.type} - ${inst.wattage}W) @ ${inst.position} U${inst.unit}`
+                        ).join('<br>')}</td>
+                    </tr>
+                `;
+            }).join('')}
+        </table>
+    `;
+
+    // Add close button
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        color: var(--text-color);
+    `;
+    closeButton.onclick = () => document.body.removeChild(modal);
+
+    // Add close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Add button to ask for wattage limit
+    const wattageLimitButton = document.createElement('button');
+    wattageLimitButton.innerHTML = 'Set Wattage Limit';
+    wattageLimitButton.style.cssText = `
+        position: absolute;
+        top: 50px;
+        right: 10px;
+        background: var(--button-bg);
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 5px 10px;
+        color: var(--text-color);
+    `;
+    wattageLimitButton.onclick = () => {
+        const wattageLimit = prompt('Enter the wattage limit (default is 2400):', 2400);
+        if (wattageLimit) {
+            // Update the warning class based on the new wattage limit
+            document.querySelectorAll('.channel-table tr').forEach((tr, index) => {
+                const totalWattage = sortedChannels[index].reduce((sum, inst) => sum + inst.wattage, 0);
+                if (totalWattage > parseInt(wattageLimit)) {
+                    tr.classList.add('warning');
+                } else {
+                    tr.classList.remove('warning');
+                }
+            });
+            // Save the new wattage limit for future use
+            localStorage.setItem('wattageLimit', wattageLimit);
+        }
+    };
+
+    content.insertBefore(closeButton, content.firstChild);
+    content.insertBefore(wattageLimitButton, content.firstChild);
     modal.appendChild(content);
     document.body.appendChild(modal);
 }
