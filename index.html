@@ -647,6 +647,15 @@
     </div>
 
     <div class="dropdown">
+        <button style="border: 1px solid var(--border-color);">Layers</button>
+        <div class="dropdown-content" id="layersDropdown">
+            <div class="layers">
+                <a href="#" onclick="addLayer()">Add Layer</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="dropdown">
         <button style="border: 1px solid var(--border-color);">Help</button>
         <div class="dropdown-content">
             <div class="help">
@@ -690,7 +699,7 @@
 
 <script>
 //Version
-const version = 'v1_9_4'
+const version = 'v1_10_3'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -4112,7 +4121,157 @@ function quickInstrument() { // Duplicate of quickColor for counting Instrument 
     });
 }
 
+const layers = []; // Array to hold the layers
+const layerColors = []; // Array to hold the colors for each layer
+let displayedData = []; // Array to hold the currently displayed data
 
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    if (color.startsWith('#FF') || color.startsWith('#F0') || color.startsWith('#E0')){// || color.startsWith('#D0') || color.startsWith('#C0')) { // Avoid a range of reds
+        color = getRandomColor(); // If the color is in the range of reds, get a new one
+    }
+    return color;
+}
+
+function addLayer() {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.xml';
+    fileInput.onchange = function(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            alert('Please select an XML file.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(event.target.result, "text/xml");
+
+                const instrumentData = xmlDoc.querySelector("InstrumentData");
+                const instruments = instrumentData ? Array.from(instrumentData.children) : [];
+
+                if (instruments.length <= 0) {
+                    alert("No instrument entries found in the XML file.");
+                    return;
+                }
+
+                // Clear existing table if displayed
+                const tableBody = document.getElementById('tableBody');
+                tableBody.innerHTML = ''; // Clear existing rows
+
+                // Parse the new data and merge with original data
+                const newData = [];
+                instruments.forEach((instrument, index) => {
+                    if (index >= 5) { // Skip the first 5 entries
+                        const fullData = {};
+                        Array.from(instrument.children).forEach(child => {
+                            fullData[child.tagName.toLowerCase()] = child.textContent || '';
+                        });
+                        newData.push(fullData);
+                    }
+                });
+
+                // Generate a random color for the new layer
+                const layerColor = getRandomColor();
+                layerColors.push(layerColor); // Save the color in the layerColors array
+
+                // Add the new layer to the layers array
+                layers.push({ name: file.name, data: newData, visible: true });
+
+                // Create a new button for the layer in the dropdown
+                const layerIndex = layers.length; // Capture the current index before pushing the layer
+                const layerButton = document.createElement('a');
+                layerButton.href = '#';
+                layerButton.innerText = file.name;
+                layerButton.style.color = layerColor; // Set the button color to the layer's color
+                layerButton.onclick = function() {
+                    toggleLayerVisibility(layerIndex - 1, layerButton); // Pass the correct index to toggleLayerVisibility
+                };
+                document.getElementById('layersDropdown').appendChild(layerButton);
+
+
+                // Populate the merged data into the table
+                populateTableLayers();
+
+            } catch (error) {
+                console.error("Error parsing XML file:", error);
+                alert("An error occurred while processing the XML file. Please check the console for details.");
+            }
+        };
+
+        reader.readAsText(file);
+    };
+    fileInput.click(); // Trigger the file input dialog
+}
+
+function populateTableLayers() {
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    // Rebuild the displayed data based on visibility
+    displayedData = [...originalData]; // Start with original data
+
+    layers.forEach((layer, index) => {
+        if (layer.visible) {
+            // Add the layer data to displayedData if it's visible
+            layer.data.forEach(item => {
+                item.source = index; // Assign the layer index to the item
+                displayedData.push(item);
+            });
+        }
+    });
+
+    // Populate the merged data into the table
+    displayedData.forEach(item => {
+        const accessoriesText = Array.isArray(item.accessories) 
+            ? item.accessories.map(acc => acc.type || acc.inst_type || "Unknown").join("; ")
+            : typeof item.accessories === 'string' 
+                ? item.accessories 
+                : "";
+
+        // Determine the background color based on the layer's color
+        const rowColor = item.source !== undefined ? layerColors[item.source] : 'transparent';
+
+        const row = `<tr style="background-color: ${rowColor};"> <!-- Color for layered data -->
+            <td>${item.channel || item.chan || ''}</td>
+            <td>${item.position || item.pos || ''}</td>
+            <td>${item.unit || item.unit_number || ''}</td>
+            <td>${item.purpose || ''}</td>
+            <td>${item.type || item.inst_type || ''}</td>
+            <td>${item.dimmer || ''}</td>
+            <td>${item.address || item.absolute_address || ''}</td>
+            <td>${item.color || ''}</td>
+            <td>${item.gobo || item.template || ''}</td>
+            <td>${item.wattage || ''}</td>
+            <td>${accessoriesText}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+    });
+
+    // Refresh the DataTable
+    $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+}
+
+
+function toggleLayerVisibility(layerIndex, layerButton) {
+    // Toggle the visibility of the layer
+    layers[layerIndex].visible = !layers[layerIndex].visible;
+
+    // Update button color based on visibility
+    layerButton.style.color = layers[layerIndex].visible 
+        ? layerColors[layerIndex] // Restore the original color when visible
+        : 'red'; // Change color to red when hidden
+
+    // Repopulate the table based on updated visibility
+    populateTableLayers();
+}
 
 
 
