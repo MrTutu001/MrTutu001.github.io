@@ -643,6 +643,9 @@
             <div class="exports">
                 <a href="#" onclick="exportTableToCSV()">CSV</a>
             </div>
+            <div class="exports">
+                <a href="#" onclick="exportAllCategoriesToCSV()">CSV All Data</a>
+            </div>
         </div>
     </div>
 
@@ -699,7 +702,7 @@
 
 <script>
 //Version
-const version = 'v1_10_3'
+const version = 'v1_10_5'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1844,6 +1847,47 @@ function exportTableToCSV() {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.setAttribute('download', `${uploadedFileName}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function exportAllCategoriesToCSV() {
+    // Initialize CSV content with headers
+    let csvContent = "";
+    let headers = [];
+
+    // Get all unique headers from originalData
+    for (const instrument of originalData) {
+        for (const key in instrument) {
+            if (!headers.includes(key)) {
+                headers.push(key);
+            }
+        }
+    }
+
+    // Create CSV headers
+    csvContent += headers.join(',') + '\n';
+
+    // Iterate through each instrument in originalData
+    for (const instrument of originalData) {
+        let row = [];
+
+        // Create a row for each instrument
+        for (const header of headers) {
+            row.push(instrument[header] || '');
+        }
+
+        // Escape fields and join into a CSV row
+        csvContent += row.map(field => `"${(field + '').replace(/"/g, '""')}"`).join(',') + '\n';
+    }
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `${uploadedFileName}_AllCategories.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
