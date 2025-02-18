@@ -709,7 +709,7 @@ Export Color Count: If there are multiple gels in a light, break them appart.-->
 
 <script>
 //Version
-const version = 'v1_10_7'
+const version = 'v1_10_8'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1555,21 +1555,25 @@ function exportColorCount() {
     const colorCount = {};
 
     originalData.forEach(instrument => {
-        const color = instrument.color || "Unknown";  // Default to "Unknown" if no color
+        const colors = instrument.color.split(',').map(color => color.trim());  // Split colors if multiple
         const instType = instrument.type || instrument.inst_type || "Unknown";  // Add fallback for inst_type
 
         // Debugging: Log the inst_type and color for each instrument
-        console.log(`Instrument: ${instrument.channel}, Color: ${color}, Instrument Type: ${instType}`);
+        console.log(`Instrument: ${instrument.channel}, Colors: ${colors.join(', ')}, Instrument Type: ${instType}`);
 
-        if (!colorCount[color]) {
-            colorCount[color] = {};
-        }
+        colors.forEach(color => {
+            if (color) { // Check if color is not empty
+                if (!colorCount[color]) {
+                    colorCount[color] = {};
+                }
 
-        if (!colorCount[color][instType]) {
-            colorCount[color][instType] = 0;
-        }
+                if (!colorCount[color][instType]) {
+                    colorCount[color][instType] = 0;
+                }
 
-        colorCount[color][instType]++;
+                colorCount[color][instType]++;
+            }
+        });
     });
 
     // Flatten the colorCount object into an array for easy PDF generation
