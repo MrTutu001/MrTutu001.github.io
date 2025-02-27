@@ -3,8 +3,7 @@
 <!--This program is free and feel free to use it as you like.-->
 <!--Todo List:
 Paperwork Exports: add a limit for dynamic way to include longer text. Right now it'll just type ontop of itself.
-Layout View: Clean this up, add to savestate, add all paperwork options
-Export Color Count: If there are multiple gels in a light, break them appart.-->
+Layout View: Clean this up, add to savestate, add all paperwork options-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -430,6 +429,7 @@ Export Color Count: If there are multiple gels in a light, break them appart.-->
             <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
         </picture>
     </h1>
+    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.10.9</p>
     <style>
         @media (prefers-color-scheme: light) {
             .title-text {
@@ -709,7 +709,7 @@ Export Color Count: If there are multiple gels in a light, break them appart.-->
 
 <script>
 //Version
-const version = 'v1_10_8'
+const version = 'v1_10_9'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1555,7 +1555,13 @@ function exportColorCount() {
     const colorCount = {};
 
     originalData.forEach(instrument => {
-        const colors = instrument.color.split(',').map(color => color.trim());  // Split colors if multiple
+        let colors = [];
+        if (instrument.color.startsWith("User")) {
+            const userNumber = instrument.color.split(" ")[1];
+            colors = instrument[`user_field_${userNumber}`].split(/[+,]/).map(color => color.trim());  // Split colors if multiple, using comma or plus sign
+        } else {
+            colors = instrument.color.split(/[+,]/).map(color => color.trim());  // Split colors if multiple, using comma or plus sign
+        }
         const instType = instrument.type || instrument.inst_type || "Unknown";  // Add fallback for inst_type
 
         // Debugging: Log the inst_type and color for each instrument
@@ -1590,13 +1596,45 @@ function exportColorCount() {
         }
     }
 
-    // Sort the report alphabetically by color and instrument type
-    colorReport.sort((a, b) => {
-        if (a.color === b.color) {
-            return a.instType.localeCompare(b.instType);
+    // Function to extract the letter prefix (R, L, G, etc.)
+    function getPrefix(color) {
+        return color.charAt(0);
+    }
+
+    // Function to extract the numeric part and normalize it
+    function getNormalizedNumber(color) {
+        if (color === "N/C") return Infinity; // Ensure "N/C" is always at the bottom
+
+        let prefix = getPrefix(color);
+        let numberPart = color.slice(1); // Remove the leading letter
+
+        // If the prefix is 'R' and the number starts with '3', remove the leading '3'
+        if (prefix === 'R' && numberPart.length === 3 && numberPart.startsWith('3')) {
+            numberPart = numberPart.slice(1);
         }
-        return a.color.localeCompare(b.color);
+
+        return parseInt(numberPart, 10); // Convert to integer for proper numeric sorting
+    }
+
+    // Sort the report
+    colorReport.sort((a, b) => {
+        // Handle "N/C" to always be at the bottom
+        if (a.color === "N/C") return 1;
+        if (b.color === "N/C") return -1;
+
+        let prefixA = getPrefix(a.color);
+        let prefixB = getPrefix(b.color);
+
+        // First, sort by the prefix (letter at the start)
+        if (prefixA !== prefixB) {
+            return prefixA.localeCompare(prefixB);
+        }
+
+        // If prefixes are the same, sort by the normalized numeric value
+        return getNormalizedNumber(a.color) - getNormalizedNumber(b.color);
     });
+
+
 
     if (colorReport.length === 0) {
         alert('No color data available for export.');
