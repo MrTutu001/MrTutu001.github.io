@@ -3,7 +3,7 @@
 <!--This program is free and feel free to use it as you like.-->
 <!--Todo List:
 Paperwork Exports: add a limit for dynamic way to include longer text. Right now it'll just type ontop of itself.
-Layout View: Clean this up, add to savestate, add all paperwork options-->
+Layout View: Clean this up, add all paperwork options-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -429,7 +429,7 @@ Layout View: Clean this up, add to savestate, add all paperwork options-->
             <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
         </picture>
     </h1>
-    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.10.9</p>
+    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.11.1</p>
     <style>
         @media (prefers-color-scheme: light) {
             .title-text {
@@ -467,6 +467,10 @@ Layout View: Clean this up, add to savestate, add all paperwork options-->
                     <label for="xlsxFileInput" class="file-upload">
                         <input type="file" id="xlsxFileInput" accept=".xlsx" style="display: none;" onchange="processXLSXFile()">
                         <a href="#" onclick="document.getElementById('xlsxFileInput').click(); return false;">Excel</a>
+                    </label>
+                    <label for="fileInput" class="file-upload">
+                        <input type="file" id="lrwfileInput" accept=".lrw" style="display: none;" onchange="loadData()">
+                        <a href="#" onclick="document.getElementById('lrwfileInput').click(); return false;">Light Rewrite File</a>
                     </label>
                 </div>
             </div>
@@ -622,6 +626,7 @@ Layout View: Clean this up, add to savestate, add all paperwork options-->
                     <a href="#" onclick="exportChannelHookup()">Channel Hookup</a>
                     <a href="#" onclick="exportInstrumentSchedule()">Instrument Schedule</a>
                     <a href="#" onclick="exportColorCount()">Color Count</a>
+                    <a href="#" onclick="exportColorSchedule()">Color Schedule</a>
                     <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
                     <a href="#" onclick="exportWorkNotes()">Work Notes</a>
                 </div>
@@ -652,6 +657,9 @@ Layout View: Clean this up, add to savestate, add all paperwork options-->
             </div>
             <div class="exports">
                 <a href="#" onclick="exportAllCategoriesToCSV()">CSV All Data</a>
+            </div>
+            <div class="exports">
+                <a href="#" onclick="saveDataToFile()">Light Rewrite File</a>
             </div>
         </div>
     </div>
@@ -709,7 +717,7 @@ Layout View: Clean this up, add to savestate, add all paperwork options-->
 
 <script>
 //Version
-const version = 'v1_10_9'
+const version = 'v1_11_1'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -728,7 +736,12 @@ let layoutLimits = {
     'instrument': 12,
     'gel' : 20,
     'instrCount' : 20,
+    'instrumentSizes' : {}
 };
+
+
+
+
 
 
 // Add these functions to handle saving/loading state
@@ -740,6 +753,7 @@ function saveState() {
         headElectrician,
         uploadedFileName,
         workNotesData, // Add work notes to saved state
+        layoutLimits
     };
     
     try {
@@ -762,6 +776,9 @@ function loadState() {
             headElectrician = state.headElectrician || '';
             uploadedFileName = state.uploadedFileName || '';
             workNotesData = state.workNotesData || []; // Load work notes from saved state
+            if (state.layoutLimits) {
+                layoutLimits = state.layoutLimits;
+            }
             
             // Only update the table if there's data
             if (originalData.length > 0) {
@@ -1536,7 +1553,7 @@ function exportColorCount() {
             </div>
             <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
                 <span style="width: 45%;">Color</span>
-                <span style="width: 45%;">Instrument Type</span>
+                <span style="width: 45%;">Size</span>
                 <span style="width: 10%;">Count</span>
             </div>
             <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
@@ -1556,30 +1573,33 @@ function exportColorCount() {
 
     originalData.forEach(instrument => {
         let colors = [];
-        if (instrument.color.startsWith("User")) {
-            const userNumber = instrument.color.split(" ")[1];
-            colors = instrument[`user_field_${userNumber}`].split(/[+,]/).map(color => color.trim());  // Split colors if multiple, using comma or plus sign
-        } else {
-            colors = instrument.color.split(/[+,]/).map(color => color.trim());  // Split colors if multiple, using comma or plus sign
-        }
-        const instType = instrument.type || instrument.inst_type || "Unknown";  // Add fallback for inst_type
-
-        // Debugging: Log the inst_type and color for each instrument
-        console.log(`Instrument: ${instrument.channel}, Colors: ${colors.join(', ')}, Instrument Type: ${instType}`);
-
-        colors.forEach(color => {
-            if (color) { // Check if color is not empty
-                if (!colorCount[color]) {
-                    colorCount[color] = {};
-                }
-
-                if (!colorCount[color][instType]) {
-                    colorCount[color][instType] = 0;
-                }
-
-                colorCount[color][instType]++;
+        if (instrument.color !== "N/C") { //Excludes N/C from the color count
+            if (instrument.color.startsWith("User")) {
+                const userNumber = instrument.color.split(" ")[1];
+                colors = instrument[`user_field_${userNumber}`].split(/[\/+]+/).map(color => color.trim());  // Split colors if multiple, using forward slash or plus
+            } else {
+                colors = instrument.color.split(/[\/+]+/).map(color => color.trim());  // Split colors if multiple, using forward slash or plus
             }
-        });
+        
+            const instType = layoutLimits.instrumentSizes[instrument.type || instrument.inst_type] || instrument.type || instrument.inst_type || "Unknown"; // Checks if a size for the instrument type has been set. If not, then defaults to instrument type
+
+            // Debugging: Log the inst_type and color for each instrument
+            console.log(`Instrument: ${instrument.channel}, Colors: ${colors.join(', ')}, Instrument Type: ${instType}`);
+
+            colors.forEach(color => {
+                if (color) { // Check if color is not empty
+                    if (!colorCount[color]) {
+                        colorCount[color] = {};
+                    }
+
+                    if (!colorCount[color][instType]) {
+                        colorCount[color][instType] = 0;
+                    }
+
+                    colorCount[color][instType]++;
+                }
+            });
+        }
     });
 
     // Flatten the colorCount object into an array for easy PDF generation
@@ -1693,6 +1713,173 @@ function exportColorCount() {
     const pdfOptions = {
         margin:       0.5,
         filename:     `${uploadedFileName}_color_count.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
+
+function exportColorSchedule() {
+    //Check if show info exists
+    if (!showName || !designer || !headElectrician) {
+        if (confirm('Some show info is missing. Would you like to fill out the missing data?')) {
+            getShowInfo();
+        }
+    }
+    function createHeader(pageNumber) { //Data Point Add
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h1 style="margin: 0; color: black;">Color Schedule - ${showName}</h1>
+                <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
+            </div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
+                <span style="width: 45%;">Color</span>
+                <span style="width: 30%;">Size</span>
+                <span style="width: 25%;">Instrument Position</span>
+                <span style="width: 10%;">Count</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
+
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
+                <p>This was generated using Light Rewrite Web ${version}</p>
+            </div>
+        `;
+    }
+
+    // Create a map to count colors by instrument type and position
+    const colorCount = {};
+
+    originalData.forEach(instrument => {
+        let colors = [];
+        if (instrument.color !== "N/C") { //Excludes N/C from the color count
+            if (instrument.color.startsWith("User")) {
+                const userNumber = instrument.color.split(" ")[1];
+                colors = [instrument[`user_field_${userNumber}`].trim()];  // Don't split the color
+            } else {
+                colors = [instrument.color.trim()];  // Don't split the color
+            }
+        
+            const instType = layoutLimits.instrumentSizes[instrument.type || instrument.inst_type] || instrument.type || instrument.inst_type || "Unknown"; // Checks if a size for the instrument type has been set. If not, then defaults to instrument type
+            const position = instrument.position || "Unknown";  // Add fallback for position
+
+            // Debugging: Log the inst_type, position and color for each instrument
+            console.log(`Instrument: ${instrument.channel}, Colors: ${colors.join(', ')}, Instrument Type: ${instType}, Position: ${position}`);
+
+            colors.forEach(color => {
+                if (color) { // Check if color is not empty
+                    if (!colorCount[color]) {
+                        colorCount[color] = {};
+                    }
+
+                    if (!colorCount[color][instType]) {
+                        colorCount[color][instType] = {};
+                    }
+
+                    if (!colorCount[color][instType][position]) {
+                        colorCount[color][instType][position] = 0;
+                    }
+
+                    colorCount[color][instType][position]++;
+                }
+            });
+        }
+    });
+
+    // Flatten the colorCount object into an array for easy PDF generation
+    const colorReport = [];
+    for (const color in colorCount) {
+        if (color !== "Unknown") { // Exclude "Unknown" color
+            for (const instType in colorCount[color]) {
+                for (const position in colorCount[color][instType]) {
+                    colorReport.push({
+                        color: color,
+                        instType: instType,
+                        position: position,
+                        count: colorCount[color][instType][position]
+                    });
+                }
+            }
+        }
+    }
+
+    // Sort the report by instrument position
+    colorReport.sort((a, b) => {
+        return a.position.localeCompare(b.position);
+    });
+
+    if (colorReport.length === 0) {
+        alert('No color data available for export.');
+        return;
+    }
+
+    const pdfDiv = document.createElement('div');
+    pdfDiv.style.width = '100%';
+    pdfDiv.style.fontSize = '12px';
+    pdfDiv.style.color = 'black'; // Ensure text is always black
+
+    const itemsPerPage = layoutLimits.gel;
+    let pageNumber = 1;
+
+    // Group the colorReport by position to ensure each position gets its own page
+    const groupedByPosition = colorReport.reduce((acc, current) => {
+        const { position } = current;
+        if (!acc[position]) {
+            acc[position] = [];
+        }
+        acc[position].push(current);
+        return acc;
+    }, {});
+
+    Object.keys(groupedByPosition).forEach((position) => {
+        const chunk = groupedByPosition[position];
+        const headerContent = createHeader(pageNumber);
+
+        let pdfContent = '';
+        chunk.forEach((report) => {
+            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+                <span style="width: 45%;">${report.color}</span>
+                <span style="width: 30%;">${report.instType}</span>
+                <span style="width: 25%;">${report.position}</span>
+                <span style="width: 10%;">${report.count}</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+        });
+
+        const footerContent = createFooter(pageNumber);
+        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+        // Ensure each position gets its own page
+        pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+        pageNumber++;
+    });
+
+    // Display a message to the user that the file is processing
+    const processingMessage = document.createElement('div');
+    processingMessage.style.position = 'fixed';
+    processingMessage.style.top = '50%';
+    processingMessage.style.left = '50%';
+    processingMessage.style.transform = 'translate(-50%, -50%)';
+    processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    processingMessage.style.color = 'white';
+    processingMessage.style.padding = '20px';
+    processingMessage.style.borderRadius = '10px';
+    processingMessage.style.zIndex = '9999';
+    processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+    document.body.appendChild(processingMessage);
+    setTimeout(() => {
+        document.body.removeChild(processingMessage);
+    }, 2000);
+
+    const pdfOptions = {
+        margin:       0.5,
+        filename:     `${uploadedFileName}_color_schedule.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
@@ -4420,7 +4607,6 @@ function layoutView() {
     // Hide the original DataTable
     document.getElementById('dataTable').style.display = 'none';
 
-
     //Channel Hookup
     const labelChan = document.createElement('label');
     labelChan.textContent = 'Channel Hookup Lines Per Page';
@@ -4448,6 +4634,51 @@ function layoutView() {
     intrLines.classList.add('layoutViewInputBox'); // Added class for easy deletion
     document.body.appendChild(intrLines);
 
+    //Color Count Section
+    const colorCountSection = document.createElement('div');
+    colorCountSection.style.marginTop = '20px';
+    colorCountSection.classList.add('layoutViewInputBox');
+    document.body.appendChild(colorCountSection);
+
+    // Header for Color Count Section
+    const colorCountHeader = document.createElement('h2');
+    colorCountHeader.textContent = 'Color Count Settings';
+    colorCountHeader.style.marginBottom = '10px';
+    colorCountSection.appendChild(colorCountHeader);
+
+
+    // Get unique instrument types from original data
+    const instrumentTypes = [...new Set(originalData.map(instrument => instrument.type || instrument.inst_type || "Unknown"))];
+
+    instrumentTypes.forEach(instrumentType => {
+        const label = document.createElement('label');
+        label.textContent = `${instrumentType}`;
+        label.style.display = 'block';
+        colorCountSection.appendChild(label);
+
+        const dropdown = document.createElement('select');
+        dropdown.style.width = '300px';
+        dropdown.classList.add('layoutViewInputBox'); // Added class for easy deletion
+        colorCountSection.appendChild(dropdown);
+
+        // Frame sizes for each instrument type
+        const frameSizes = ['','6.25"', '7.5"', '10"'];
+        frameSizes.forEach(frameSize => {
+            const option = document.createElement('option');
+            option.textContent = frameSize;
+            option.value = frameSize;
+            if (layoutLimits.instrumentSizes[instrumentType] === frameSize) {
+                option.selected = true;
+            }
+            dropdown.appendChild(option);
+        });
+
+        // Store the dropdown selection for each instrument type
+        dropdown.onchange = function() {
+            layoutLimits.instrumentSizes[instrumentType] = this.value;
+        };
+    });
+
     const updateLayoutLimitsButton = document.createElement('button');
     updateLayoutLimitsButton.textContent = 'Update Layout Limits';
     updateLayoutLimitsButton.style.marginTop = '20px';
@@ -4458,12 +4689,217 @@ function layoutView() {
     updateLayoutLimitsButton.onclick = function() {
         layoutLimits.channel = parseInt(channelLines.value);
         layoutLimits.instrument = parseInt(intrLines.value);
+        saveState();
         alert('Layout limits updated successfully.');
     };
 }
 
+function saveDataToFile(filename = uploadedFileName, contentType = 'application/json') {
+    const state = {
+        originalData,
+        showName,
+        designer,
+        headElectrician,
+        uploadedFileName,
+        workNotesData, // Add work notes to saved state
+        layoutLimits
+    };
+    // 1. Serialize the JavaScript object to a JSON string.
+    // The `null, 2` arguments are for pretty-printing the JSON with an indentation of 2 spaces,
+    // making the downloaded file more human-readable. You can remove them if you want a compact file.
+    const jsonString = JSON.stringify(state, null, 2);
 
+    // 2. Create a Blob from the JSON string.
+    // A Blob (Binary Large Object) is a file-like object of immutable, raw data.
+    const blob = new Blob([jsonString], { type: contentType });
 
+    // 3. Create a URL for the Blob.
+    // This URL can be used to reference the Blob as if it were a file hosted on a server.
+    const url = URL.createObjectURL(blob);
+
+    // 4. Create a temporary anchor (<a>) element to trigger the download.
+    const a = document.createElement('a');
+
+    // 5. Set the href of the anchor to the Blob URL.
+    a.href = url;
+
+    // 6. Set the download attribute of the anchor. This tells the browser to download the linked file
+    // with the specified filename, instead of navigating to it.
+    const lrwFileName = filename + ".lrw"
+    a.download = lrwFileName;
+
+    // 7. Append the anchor to the document body (it doesn't need to be visible).
+    document.body.appendChild(a);
+
+    // 8. Programmatically click the anchor to trigger the download.
+    a.click();
+
+    // 9. Clean up by removing the temporary anchor and revoking the Blob URL.
+    // Revoking the object URL releases the resources associated with it.
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log(`File "${filename}" download initiated.`);
+}
+
+function loadData() {
+    try {
+        const fileInput = document.getElementById('lrwfileInput');
+        if (!fileInput || !fileInput.files) {
+            alert('File input element not found or does not support files.');
+            return;
+        }
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('Please select a JSON file to load.');
+            return;
+        }
+
+        console.log(`File selected: ${file.name}, type: ${file.type}, size: ${file.size} bytes`); // More detailed file log
+
+        const reader = new FileReader();
+
+        // This function is called WHEN the FileReader has successfully loaded the file content
+        reader.onload = function(event) {
+            console.log(`File content loaded. Attempting to parse as JSON.`);
+            const savedStateContent = event.target.result; // This should be the text content of the file
+
+            // --- CRITICAL DEBUGGING STEP ---
+            console.log("Type of savedStateContent:", typeof savedStateContent);
+            console.log("Content being passed to JSON.parse():", savedStateContent);
+            // --- END CRITICAL DEBUGGING STEP ---
+
+            if (savedStateContent) {
+                try {
+                    const loadedAppState = JSON.parse(savedStateContent); // Attempt to parse
+                    console.log("JSON parsing successful. Loaded state:", loadedAppState);
+
+                    // Now you can use 'loadedAppState' to update your application's state
+                    // For example:
+                    state = loadedAppState; // If 'state' is your global or module-level state variable
+                    
+                    console.log("Loading state NOW")
+                // Restore all state variables
+                originalData = state.originalData || [];
+                showName = state.showName || '';
+                designer = state.designer || '';
+                headElectrician = state.headElectrician || '';
+                uploadedFileName = state.uploadedFileName || '';
+                workNotesData = state.workNotesData || []; // Load work notes from saved state
+                if (state.layoutLimits) {
+                    layoutLimits = state.layoutLimits;
+                }
+                
+                // Only update the table if there's data
+                if (originalData.length > 0) {
+                    const tableBody = document.getElementById('tableBody');
+                    tableBody.innerHTML = '';
+                    
+                    originalData.forEach(item => {
+                        const accessoriesText = Array.isArray(item.accessories) 
+                            ? item.accessories.map(acc => acc.type || acc.inst_type || "Unknown").join("; ")
+                            : typeof item.accessories === 'string' 
+                                ? item.accessories 
+                                : "";
+
+                        const row = `<tr>
+                            <td>${item.channel || item.chan || ''}</td>
+                            <td>${item.position || item.pos || ''}</td>
+                            <td>${item.unit || item.unit_number || ''}</td>
+                            <td>${item.purpose || ''}</td>
+                            <td>${item.type || item.inst_type || ''}</td>
+                            <td>${item.dimmer || ''}</td>
+                            <td>${item.address || item.absolute_address || ''}</td>
+                            <td>${item.color || ''}</td>
+                            <td>${item.gobo || item.template || ''}</td>
+                            <td>${item.wattage || ''}</td> <!-- Added Wattage data -->
+                            <td>${accessoriesText}</td>
+                        </tr>`;
+                        tableBody.innerHTML += row;
+                    });
+
+                    document.getElementById('dataTable').style.display = 'block';
+                    document.getElementById('instructionBox').style.display = 'none';
+                    document.getElementById('instructionBox2').style.display = 'none';
+                    document.getElementById('instructionBox3').style.display = 'none';
+                    document.getElementById('instructionBox4').style.display = 'none';
+                    document.getElementById('searchInfo').style.display = 'none';
+
+                    if (!tableInitialized) {
+                        $('#dataTable').DataTable({
+                            searching: false,
+                            paging: false,
+                            info: false,
+                            order: [],
+                            columnDefs: [{
+                                targets: 1,
+                                orderData: [1, 2],
+                                type: 'num' // Specify that this column should be treated as numeric
+                            }],
+                            createdRow: function(row, data, dataIndex) {
+                                const api = this.api();
+                                const sortedColumnIndex = api.order()[0][0]; // Get the index of the sorted column
+                                $(row).find('td').eq(sortedColumnIndex).addClass('sorted-column'); // Add class to the sorted column cell
+                                // Set the background color to match the system theme
+                                $(row).find('td').eq(sortedColumnIndex).css({
+                                    backgroundColor: 'var(--background-color)', // Match the system theme background color
+                                    color: 'var(--text-color)' // Match text color
+                                });
+                            },
+                            // Add this to handle the header sorting
+                            order: [[0, 'asc']], // Default sorting
+                            drawCallback: function(settings) {
+                                const api = this.api();
+                                const sortedColumnIndex = api.order()[0][0]; // Get the index of the sorted column
+                                $(api.column(sortedColumnIndex).header()).addClass('sorted-column'); // Add class to the sorted column header
+                                // Update all cells in the sorted column to match the theme
+                                api.rows().every(function() {
+                                    const row = this.node();
+                                    $(row).find('td').eq(sortedColumnIndex).css({
+                                        backgroundColor: 'var(--background-color)', // Match the system theme background color
+                                        color: 'var(--text-color)' // Match text color
+                                    });
+                                });
+                            }
+                        });
+                        tableInitialized = true;
+                    } else {
+                        $('#dataTable').DataTable().clear().rows.add($(tableBody).children()).draw();
+                    }
+                }
+                    saveState()
+
+                } catch (parseError) {
+                    console.error("Error parsing JSON:", parseError);
+                    // Log the content again on error to be sure what caused it
+                    console.error("Content that failed to parse:", savedStateContent);
+                    alert(`Error parsing the file. It might not be a valid JSON format. Check the console for details. Error: ${parseError.message}`);
+                }
+            } else {
+                console.error("File content (savedStateContent) is empty or null after loading.");
+                alert("Failed to read file content. The content appears to be empty.");
+            }
+        };
+
+        // This function is called if there's an error DURING the file reading process
+        reader.onerror = function(event) {
+            console.error("FileReader error:", reader.error); // or event.target.error
+            alert(`Error reading file: ${reader.error.message}`);
+        };
+
+        // --- THIS IS THE CRITICAL MISSING LINE (or its equivalent) ---
+        // Start reading the file. The 'onload' event will fire once this is complete.
+        reader.readAsText(file);
+        // If your file isn't plain text JSON but some binary format (unlikely for this case),
+        // you might use reader.readAsArrayBuffer(file) or reader.readAsDataURL(file),
+        // but for JSON, readAsText() is correct.
+                
+                
+        } catch{
+            console.log('oof')
+        }
+    }
 </script>
 
 </body>
