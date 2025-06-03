@@ -429,7 +429,7 @@ Layout View: Clean this up, add all paperwork options-->
             <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
         </picture>
     </h1>
-    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.11.1</p>
+    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.11.2</p>
     <style>
         @media (prefers-color-scheme: light) {
             .title-text {
@@ -717,7 +717,7 @@ Layout View: Clean this up, add all paperwork options-->
 
 <script>
 //Version
-const version = 'v1_11_1'
+const version = 'v1_11_2'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1228,15 +1228,24 @@ function exportChannelHookup() {
 
         // Extract dimmer information
         const dimmerText = instrument.dimmer || instrument.dimmer_number || '';
+        let address = parseInt(instrument.address || instrument.absolute_address || '0', 10);
+        let universe = 1;
+        while (address > 512) {
+            address -= 512;
+            universe++;
+        }
+        const addressText = `${universe}/${address}`;
+        const positionText = (instrument.position || instrument.pos || '').substring(0, 9);
+        const purposeText = (instrument.purpose || '').substring(0, 9);
 
         return `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
             <span style="width: 12%;">${instrument.channel || instrument.chan || ''}</span>
-            <span style="width: 12%;">${instrument.position || instrument.pos || ''}</span>
+            <span style="width: 12%;">${positionText}</span>
             <span style="width: 12%;">${instrument.unit || instrument.unit_number || ''}</span>
-            <span style="width: 12%;">${instrument.purpose || ''}</span>
+            <span style="width: 12%;">${purposeText}</span>
             <span style="width: 12%;">${instrument.type || instrument.inst_type || ''}</span>
             <span style="width: 12%;">${dimmerText}</span> <!-- Added Dimmer data -->
-            <span style="width: 12%;">${instrument.address || instrument.absolute_address || ''}</span>
+            <span style="width: 12%;">${addressText}</span>
             <span style="width: 12%;">${instrument.color || ''}</span>
             <span style="width: 12%;">${instrument.gobo || instrument.template || ''}</span>
             <span style="width: 12%;">${instrument.wattage || ''}</span> <!-- Added Wattage data -->
@@ -1373,14 +1382,22 @@ function exportInstrumentSchedule() {
 
         // Extract dimmer information
         const dimmerText = instrument.dimmer || instrument.dimmer_number || '';
+        let address = parseInt(instrument.address || instrument.absolute_address || '0', 10);
+        let universe = 1;
+        while (address > 512) {
+            address -= 512;
+            universe++;
+        }
+        const addressText = `${universe}/${address}`;
+        const purposeText = (instrument.purpose || '').substring(0, 9);
 
         return `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
             <span style="width: 12%;">${instrument.unit || instrument.unit_number || ''}</span>
-            <span style="width: 12%;">${instrument.purpose || ''}</span>
+            <span style="width: 12%;">${purposeText}</span>
             <span style="width: 12%;">${instrument.type || instrument.inst_type || ''}</span>
             <span style="width: 12%;">${instrument.channel || instrument.chan || ''}</span>
             <span style="width: 12%;">${dimmerText}</span> <!-- Added Dimmer data -->
-            <span style="width: 12%;">${instrument.address || instrument.absolute_address || ''}</span>
+            <span style="width: 12%;">${addressText}</span>
             <span style="width: 12%;">${instrument.color || ''}</span>
             <span style="width: 12%;">${instrument.gobo || instrument.template || ''}</span>
             <span style="width: 12%;">${instrument.wattage || ''}</span> <!-- Added Wattage data -->
