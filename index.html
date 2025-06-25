@@ -429,7 +429,7 @@ Layout View: Clean this up, add all paperwork options-->
             <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
         </picture>
     </h1>
-    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.11.2</p>
+    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.12.1</p>
     <style>
         @media (prefers-color-scheme: light) {
             .title-text {
@@ -629,6 +629,7 @@ Layout View: Clean this up, add all paperwork options-->
                     <a href="#" onclick="exportColorSchedule()">Color Schedule</a>
                     <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
                     <a href="#" onclick="exportWorkNotes()">Work Notes</a>
+                    <a href="#" onclick="exportWeightSchedule()">Weight Schedule</a>
                 </div>
             </div>
             <script>
@@ -717,7 +718,7 @@ Layout View: Clean this up, add all paperwork options-->
 
 <script>
 //Version
-const version = 'v1_11_2'
+const version = 'v1_12_1'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1903,6 +1904,168 @@ function exportColorSchedule() {
     };
 
     html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
+
+function exportWeightSchedule() {
+    //Check if show info exists
+    if (!showName || !designer || !headElectrician) {
+        if (confirm('Some show info is missing. Would you like to fill out the missing data?')) {
+            getShowInfo();
+        }
+    }
+
+    // Function to create the header for the PDF
+    function createHeader(pageNumber) {
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; color: black;">
+                <h1 style="margin: 0;">Weight Schedule ${showName}</h1>
+                <div style="text-align: center; font-size: 10px;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px;">Page ${pageNumber}...</div>
+            </div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%; color: black;">
+                <span style="width: 80%;">Position</span>
+                <span style="width: 20%;">Total Weight</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
+
+    // Function to create the footer for the PDF
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
+                <p>This was generated using Light Rewrite Web ${version}</p>
+            </div>
+        `;
+    }
+
+    // Create a map to count the total weight for each position
+    const positionWeight = {};
+
+    originalData.forEach(instrument => {
+        const position = instrument.position || "Unknown";  // Add fallback for position
+
+        // Debugging: Log the position and weight for each instrument
+        console.log(`Instrument: ${instrument.channel}, Position: ${position}, Weight: ${instrument.weight}`);
+
+        if (!positionWeight[position]) {
+            positionWeight[position] = 0;
+        }
+
+        positionWeight[position] += parseFloat(instrument.weight.replace('lb', ''));
+    });
+
+    // Round the weight to 2 decimal places
+    for (const position in positionWeight) {
+        positionWeight[position] = Math.round(positionWeight[position] * 100) / 100;
+    }
+
+    // Convert the positionWeight object into an array for easy PDF generation
+    const weightReport = [];
+    let totalWeight = 0; // Initialize total weight
+    for (const position in positionWeight) {
+        weightReport.push({
+            position: position,
+            weight: positionWeight[position]
+        });
+        totalWeight += positionWeight[position]; // Accumulate total weight
+    }
+
+    // Sort the report alphabetically by position
+    weightReport.sort((a, b) => a.position.localeCompare(b.position));
+
+    if (weightReport.length === 0) {
+        alert('No weight data available for export.');
+        return;
+    }
+
+    // Ask the user to select positions to include in the export
+    const userSelectionBox = document.createElement('div');
+    userSelectionBox.style.position = 'fixed';
+    userSelectionBox.style.top = '50%';
+    userSelectionBox.style.left = '50%';
+    userSelectionBox.style.transform = 'translate(-50%, -50%)';
+    userSelectionBox.style.backgroundColor = 'black';
+    userSelectionBox.style.color = 'white';
+    userSelectionBox.style.padding = '20px';
+    userSelectionBox.style.borderRadius = '10px';
+    userSelectionBox.style.zIndex = '9999';
+
+    let checkboxHTML = '';
+    weightReport.forEach(report => {
+        checkboxHTML += `<input type="checkbox" value="${report.position}" unchecked> ${report.position}<br>`;
+    });
+
+    userSelectionBox.innerHTML = `
+        <h2>Select Positions to Include:</h2>
+        ${checkboxHTML}
+        <button id="submitSelection">Submit</button>
+    `;
+
+    document.body.appendChild(userSelectionBox);
+
+    const selectedPositions = promptUserToSelectPositions(userSelectionBox, checkboxHTML).then(selectedPositions => {
+        // Filter the weightReport based on the selected positions
+        const filteredWeightReport = weightReport.filter(report => selectedPositions.split(',').includes(report.position));
+
+        const pdfDiv = document.createElement('div');
+        pdfDiv.style.width = '100%';
+        pdfDiv.style.fontSize = '12px';
+
+        const itemsPerPage = layoutLimits.instrCount;
+        let pageNumber = 1;
+
+        for (let i = 0; i < filteredWeightReport.length; i += itemsPerPage) {
+            const chunk = filteredWeightReport.slice(i, i + itemsPerPage);
+            const headerContent = createHeader(pageNumber);
+
+            let pdfContent = '';
+            chunk.forEach((report) => {
+                pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%; color: black;">
+                    <span style="width: 80%;">${report.position}</span>
+                    <span style="width: 20%;">${report.weight}</span>
+                </div>
+                <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+            `;
+            });
+
+            const footerContent = createFooter(pageNumber);
+            pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+            if (i + itemsPerPage < filteredWeightReport.length) {
+                pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+            }
+
+            pageNumber++;
+        }
+
+        // Display a message to the user that the file is processing
+        const processingMessage = document.createElement('div');
+        processingMessage.style.position = 'fixed';
+        processingMessage.style.top = '50%';
+        processingMessage.style.left = '50%';
+        processingMessage.style.transform = 'translate(-50%, -50%)';
+        processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        processingMessage.style.color = 'white';
+        processingMessage.style.padding = '20px';
+        processingMessage.style.borderRadius = '10px';
+        processingMessage.style.zIndex = '9999';
+        processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+        document.body.appendChild(processingMessage);
+        setTimeout(() => {
+            document.body.removeChild(processingMessage);
+        }, 2000);
+
+        const pdfOptions = {
+            margin:       0.5,
+            filename:     `${uploadedFileName}_weight_schedule.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+        };
+
+        html2pdf().from(pdfDiv).set(pdfOptions).save();
+    });
 }
 
 function exportInstrumentTypeCount() {
