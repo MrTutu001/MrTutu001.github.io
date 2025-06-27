@@ -429,7 +429,7 @@ Layout View: Clean this up, add all paperwork options-->
             <img src="lightRewriteIconBlack.ico" alt="Right Icon" class="icon mirrored">
         </picture>
     </h1>
-    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.12.1</p>
+    <p class="version" style="font-size: 8px; text-align: right; color: grey;">Version 1.12.2</p>
     <style>
         @media (prefers-color-scheme: light) {
             .title-text {
@@ -630,6 +630,7 @@ Layout View: Clean this up, add all paperwork options-->
                     <a href="#" onclick="exportInstrumentTypeCount()">Instrument Count</a>
                     <a href="#" onclick="exportWorkNotes()">Work Notes</a>
                     <a href="#" onclick="exportWeightSchedule()">Weight Schedule</a>
+                    <a href="#" onclick="exportAccessoriesCount()">Accessories Count</a>
                 </div>
             </div>
             <script>
@@ -718,7 +719,7 @@ Layout View: Clean this up, add all paperwork options-->
 
 <script>
 //Version
-const version = 'v1_12_1'
+const version = 'v1_12_2'
 //Globals    
 let originalData = []; // Global variable to store original data
 let tableInitialized = false; // Keep track of whether the DataTable has been initialized
@@ -1739,6 +1740,171 @@ function exportColorCount() {
     html2pdf().from(pdfDiv).set(pdfOptions).save();
 }
 
+function exportAccessoriesCount() {
+    //Check if show info exists
+    if (!showName || !designer || !headElectrician) {
+        if (confirm('Some show info is missing. Would you like to fill out the missing data?')) {
+            getShowInfo();
+        }
+    }
+    function createHeader(pageNumber) { //Data Point Add
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <h1 style="margin: 0; color: black;">Accessory Count ${showName}</h1>
+                <div style="text-align: center; font-size: 10px; color: black;">Designer: ${designer} | HE: ${headElectrician}</div>
+                <div style="text-align: right; font-size: 10px; color: black;">Page ${pageNumber}...</div>
+            </div>
+            <div style="font-weight: bold; display: flex; justify-content: space-between; width: 100%;">
+                <span style="width: 45%;">Accessory</span>
+                <span style="width: 45%;">Count</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>
+        `;
+    }
+
+    function createFooter(pageNumber) {
+        return `
+            <div style="text-align: center; font-size: 8px; margin-top: 20px; color: black;">
+                <p>This was generated using Light Rewrite Web ${version}</p>
+            </div>
+        `;
+    }
+
+    // Create a map to count accessories by name
+    const accessoryCount = {};
+
+    originalData.forEach(instrument => {
+        let accessories = [];
+        if (typeof instrument.accessories === 'string') {
+            accessories = instrument.accessories.split(/[\/+]+/).map(accessory => accessory.trim());
+        } else if (Array.isArray(instrument.accessories)) {
+            accessories = instrument.accessories.map(acc => acc.type || acc.inst_type || acc.name || '').filter(Boolean);
+        } else {
+            accessories = [];
+        }
+        
+        // Debugging: Log the accessories for each instrument
+        console.log(`Instrument: ${instrument.channel}, Accessories: ${accessories.join(', ')}`);
+
+        accessories.forEach(accessory => {
+            if (accessory) { // Check if accessory is not empty
+                if (!accessoryCount[accessory]) {
+                    accessoryCount[accessory] = 0;
+                }
+
+                accessoryCount[accessory]++;
+            }
+        });
+    });
+
+    // Flatten the accessoryCount object into an array for easy PDF generation
+    const accessoryReport = Object.entries(accessoryCount).map(([accessory, count]) => ({
+        accessory: accessory,
+        count: count
+    }));
+
+    // Function to extract the letter prefix (R, L, G, etc.)
+    function getPrefix(accessory) {
+        return accessory.charAt(0);
+    }
+
+    // Function to extract the numeric part and normalize it
+    function getNormalizedNumber(accessory) {
+        if (accessory === "N/C") return Infinity; // Ensure "N/C" is always at the bottom
+
+        let prefix = getPrefix(accessory);
+        let numberPart = accessory.slice(1); // Remove the leading letter
+
+        // If the prefix is 'R' and the number starts with '3', remove the leading '3'
+        if (prefix === 'R' && numberPart.length === 3 && numberPart.startsWith('3')) {
+            numberPart = numberPart.slice(1);
+        }
+
+        return parseInt(numberPart, 10); // Convert to integer for proper numeric sorting
+    }
+
+    // Sort the report
+    accessoryReport.sort((a, b) => {
+        // Handle "N/C" to always be at the bottom
+        if (a.accessory === "N/C") return 1;
+        if (b.accessory === "N/C") return -1;
+
+        let prefixA = getPrefix(a.accessory);
+        let prefixB = getPrefix(b.accessory);
+
+        // First, sort by the prefix (letter at the start)
+        if (prefixA !== prefixB) {
+            return prefixA.localeCompare(prefixB);
+        }
+
+        // If prefixes are the same, sort by the normalized numeric value
+        return getNormalizedNumber(a.accessory) - getNormalizedNumber(b.accessory);
+    });
+
+    if (accessoryReport.length === 0) {
+        alert('No accessory data available for export.');
+        return;
+    }
+
+    const pdfDiv = document.createElement('div');
+    pdfDiv.style.width = '100%';
+    pdfDiv.style.fontSize = '12px';
+    pdfDiv.style.color = 'black'; // Ensure text is always black
+
+    const itemsPerPage = layoutLimits.gel;
+    let pageNumber = 1;
+
+    for (let i = 0; i < accessoryReport.length; i += itemsPerPage) {
+        const chunk = accessoryReport.slice(i, i + itemsPerPage);
+        const headerContent = createHeader(pageNumber);
+
+        let pdfContent = '';
+        chunk.forEach((report) => {
+            pdfContent += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px; width: 100%;">
+                <span style="width: 45%;">${report.accessory}</span>
+                <span style="width: 45%;">${report.count}</span>
+            </div>
+            <hr style="margin: 5px 0; border: none; border-top: 1px solid #000;"/>`;
+        });
+
+        const footerContent = createFooter(pageNumber);
+        pdfDiv.innerHTML += headerContent + pdfContent + footerContent;
+
+        if (i + itemsPerPage < accessoryReport.length) {
+            pdfDiv.innerHTML += '<div style="page-break-after: always;"></div>';
+        }
+
+        pageNumber++;
+    }
+
+    // Display a message to the user that the file is processing
+    const processingMessage = document.createElement('div');
+    processingMessage.style.position = 'fixed';
+    processingMessage.style.top = '50%';
+    processingMessage.style.left = '50%';
+    processingMessage.style.transform = 'translate(-50%, -50%)';
+    processingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    processingMessage.style.color = 'white';
+    processingMessage.style.padding = '20px';
+    processingMessage.style.borderRadius = '10px';
+    processingMessage.style.zIndex = '9999';
+    processingMessage.innerHTML = 'Processing your PDF file. This may take a few minuites...';
+    document.body.appendChild(processingMessage);
+    setTimeout(() => {
+        document.body.removeChild(processingMessage);
+    }, 2000);
+
+    const pdfOptions = {
+        margin:       0.5,
+        filename:     `${uploadedFileName}_accessory_count.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    };
+
+    html2pdf().from(pdfDiv).set(pdfOptions).save();
+}
+
 function exportColorSchedule() {
     //Check if show info exists
     if (!showName || !designer || !headElectrician) {
@@ -2197,6 +2363,7 @@ function exportInstrumentTypeCount() {
 
     html2pdf().from(pdfDiv).set(pdfOptions).save();
 }
+
 
 function generatePatchFile() {
     if (!originalData || originalData.length === 0) {
